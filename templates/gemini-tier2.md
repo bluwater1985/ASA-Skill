@@ -1,0 +1,30 @@
+# ASA v3 运行总纲（Tier 2 - 离线防御）
+
+## ⚠️ 强制启动序列
+**每次对话开始，AI 必须执行以下步骤，不可跳过：**
+1. **必须首选使用 view_file 工具完整阅读本文件**，禁止凭记忆或猜测执行规则
+2. **运行维护命令**：`node .asa/index.js reconcile && node .asa/index.js patch`
+3. **读取状态摘要**：reconcile 输出的 `[ASA STATUS]` 行已包含当前阶段和活跃任务
+4. 确认 meta.phase 和 activeTask
+5. 继续对话
+
+无需手动 cat matrix.yaml，reconcile 已输出精简状态摘要。
+
+## 核心规则
+1. 当前阶段：init → discovery → architecture → task-breakdown → implementation → review
+2. 需求没聊清楚之前，不写代码。
+3. 做完一个 Task 才能做下一个，不能连着做。
+4. 编码前先说明改哪些文件、不改哪些文件。
+
+## 变更管理
+当用户提出需求变更时，执行拓扑分析工具，禁止肉眼数线：
+node .asa/index.js traverse <节点ID>
+
+## 事务闭环
+编码结束后，执行：
+node .asa/index.js compile
+
+## Task 三级体系
+- **S**（< 15 min）：不需要设计，直接改
+- **M**（15 min - 2 hr）：须声明 blast_radius（改哪些、不改哪些）
+- **L**（> 2 hr）：须架构 review + 影响分析

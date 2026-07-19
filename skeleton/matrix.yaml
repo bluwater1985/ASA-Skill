@@ -1,0 +1,11 @@
+# .asa/skeleton/matrix.yaml — ASA 项目初始骨架
+meta:
+  phase: "discovery"
+  docsExpectedDigest: "sha256:empty"
+  docsActualDigest: "sha256:empty"
+
+risks: []
+requirements: {}
+architecture: {}
+tasks: {}
+edges: []

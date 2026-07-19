@@ -1,0 +1,1 @@
+node .asa/index.js validate || exit 1
