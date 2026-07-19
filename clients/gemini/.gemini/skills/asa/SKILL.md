@@ -47,10 +47,11 @@ node ~/.gemini/skills/asa/scripts/asa-init.js tier2 --force
 - 配置 `.gemini/settings.json`（按 name 更新，不重复注册）
 - 配置 `.husky/pre-commit`
 
-> **重跑安全（幂等性）**：无论执行多少次初始化，项目数据不会丢失：
-> - **`matrix.yaml`** → 存在即跳过，不覆盖
-> - **`GEMINI.md`** → 默认跳过，如需重新生成可加 `--force`（备份旧文件），或由 AI 执行语义化合并（见下文）
-> - **`.gemini/settings.json`** → 按 Hook `name` 精准匹配：已存在则更新 command 路径，不存在则追加。不会重复插入
+> **重跑安全**：无论执行多少次初始化：
+> - **`nodes/`**（需求、任务、架构）→ 永远不碰，这是不可丢的数据
+> - **`matrix.yaml`**（摘要索引）→ 可更新，数据从 nodes/ 重建（`node .asa/index.js reconcile`）
+> - **`GEMINI.md`**（项目指令）→ 默认语义化合并保留用户规约，`--force` 可备份后重新生成
+> - **`.gemini/settings.json`** → 按 Hook `name` 精准更新，不重复注册
 > - **`index.js` + `hooks/`** → 引擎文件始终更新到最新
 
 ### Step 3（备选）：手动搭建
@@ -70,12 +71,12 @@ cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 chmod +x .asa/hooks/*.js
 ```
 
-#### 创建 matrix.yaml（幂等）
-> ⚠️ 如果 `.asa/matrix.yaml` **已存在**，绝对禁止覆盖。直接跳过此步，用户的已有需求和任务数据都在里面。
+#### 创建/更新 matrix.yaml
 
-仅当文件不存在时，创建初始模板：
+> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。清空或损坏后运行 `node .asa/index.js reconcile` 即可从 nodes/ 重建。
+
 ```yaml
-# .asa/matrix.yaml（仅首次初始化时创建）
+# .asa/matrix.yaml
 meta:
   project: "<项目名称>"
   phase: "discovery"

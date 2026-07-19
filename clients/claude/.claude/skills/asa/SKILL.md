@@ -69,9 +69,9 @@ cp ~/.asa/hooks/check-work-order.js .asa/hooks/
 cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 ```
 
-### Step 4: 创建 matrix.yaml
+### Step 4: 创建/更新 matrix.yaml
 
-幂等：如果 `.asa/matrix.yaml` 已存在，跳过，不覆盖用户数据。
+> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。清空或损坏后运行 `node .asa/index.js reconcile` 即可从 nodes/ 重建。
 
 ```yaml
 meta:
@@ -169,7 +169,8 @@ echo "node .asa/index.js validate" > .husky/pre-commit
 ## 重跑安全
 
 所有操作幂等：无论执行多少次 `/asa init`：
-- **`matrix.yaml`** → 存在即跳过
-- **`CLAUDE.md`** → 存在即语义化合并，不覆盖用户手写规约
+- **`nodes/`**（需求、任务、架构）→ 永远不碰，这是不可丢的数据
+- **`matrix.yaml`**（摘要索引）→ 可更新，数据可从 nodes/ 重建（`node .asa/index.js reconcile`）
+- **`CLAUDE.md`**（项目指令）→ 语义化合并，保留用户手写规约
 - **`settings.local.json`** → 按 name 更新，不重复注册
 - **`index.js` + `hooks/`** → 始终更新到最新引擎版本
