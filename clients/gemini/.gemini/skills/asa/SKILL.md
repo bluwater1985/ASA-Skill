@@ -41,10 +41,10 @@ node ~/.gemini/skills/asa/scripts/asa-init.js tier2
 node ~/.gemini/skills/asa/scripts/asa-init.js tier2 --force
 ```
 
-初始化脚本会自动完成：
+初始化脚本会自动完成（**幂等**：已有文件不覆盖）：
 - 创建 `.asa/` 目录结构和引擎文件
-- 生成 `matrix.yaml` 和 `GEMINI.md`
-- 配置 `.gemini/settings.json`（Hook 命令写为绝对路径）
+- `matrix.yaml` 和 `GEMINI.md` → 存在即跳过，不覆盖已有数据
+- 配置 `.gemini/settings.json`（按 name 更新，不重复注册）
 - 配置 `.husky/pre-commit`
 
 > **重跑安全（幂等性）**：无论执行多少次初始化，项目数据不会丢失：
@@ -70,9 +70,12 @@ cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 chmod +x .asa/hooks/*.js
 ```
 
-#### 创建 matrix.yaml
+#### 创建 matrix.yaml（幂等）
+> ⚠️ 如果 `.asa/matrix.yaml` **已存在**，绝对禁止覆盖。直接跳过此步，用户的已有需求和任务数据都在里面。
+
+仅当文件不存在时，创建初始模板：
 ```yaml
-# .asa/matrix.yaml
+# .asa/matrix.yaml（仅首次初始化时创建）
 meta:
   project: "<项目名称>"
   phase: "discovery"
@@ -86,8 +89,20 @@ edges: []
 ```
 
 #### 生成/合并 GEMINI.md
-- **文件不存在**：从 `~/.asa/templates/gemini-tier{1,2,3}.md` 读取对应模板创建
-- **文件已存在**：AI 使用 `view_file` 读取既有内容，完整剥离并保留用户手写的特定规约，剔除/升级重复陈旧的启动序列段落后重新写入。实现刚性内容更新 + 柔性语义去重
+
+**文件不存在时**：从 `~/.asa/templates/gemini-tier{1,2,3}.md` 读取对应模板创建。
+
+**文件已存在时**：执行以下步骤完成语义化合并：
+
+```
+Step 1: 用 view_file 读取已存在的 GEMINI.md 全文
+Step 2: 用 view_file 读取 ~/.asa/templates/gemini-tier{N}.md 模板全文
+Step 3: 对比两份内容，识别差异：
+  - 用户手写规约（项目禁忌、开发规范、人工追加的规则）→ 保留
+  - ASA 标准启动序列段落 → 用模板最新版本替换
+  - 重复或陈旧的内容 → 剔除
+Step 4: 将合并后的内容写入 GEMINI.md
+```
 
 #### 配置 Gemini CLI Hooks（Tier 2/3）
 创建 `.gemini/settings.json`，使用**绝对路径**：
