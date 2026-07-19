@@ -46,6 +46,8 @@ const errors = [];
 // 1. 复制引擎到 ~/.asa
 const engineDest = path.join(homedir, '.asa');
 fs.mkdirSync(path.join(engineDest, 'hooks'), { recursive: true });
+fs.mkdirSync(path.join(engineDest, 'templates'), { recursive: true });
+fs.mkdirSync(path.join(engineDest, 'skeleton'), { recursive: true });
 
 const engineFiles = [
   ['engine/index.js', 'index.js'],
