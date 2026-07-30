@@ -85,7 +85,20 @@ if (fs.existsSync(engineSrc)) {
   engineUpdated++;
 }
 
-// 4. Hook 脚本
+// 4. commands/
+['commands', 'lib'].forEach(dir => {
+  const srcDir = path.join(homeAsa, dir);
+  const destDir = path.join('.asa', dir);
+  if (fs.existsSync(srcDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+    for (const f of fs.readdirSync(srcDir).filter(f => f.endsWith('.js') && !f.endsWith('.test.js'))) {
+      fs.copyFileSync(path.join(srcDir, f), path.join(destDir, f));
+    }
+    engineUpdated++;
+  }
+});
+
+// 5. Hook 脚本
 const hookDir = path.join(homeAsa, 'hooks');
 if (fs.existsSync(hookDir)) {
   for (const f of fs.readdirSync(hookDir).filter(f => f.endsWith('.js'))) {

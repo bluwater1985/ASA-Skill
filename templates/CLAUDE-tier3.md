@@ -14,8 +14,13 @@
 4. 编码前先说明改哪些文件、不改哪些文件（强契约模式，CI 校验）。
 
 ## 变更管理
-当用户提出需求变更或架构否决时，执行拓扑分析工具，禁止肉眼数线：
-`node .asa/index.js traverse <节点ID>`
+当用户提出需求变更或架构否决时，执行影响分析工具，禁止肉眼数线：
+`node .asa/index.js impact <节点ID>`
+
+变更传播链路：
+1. `node .asa/index.js change-req <ID>` — 备份当前节点，准备编辑
+2. `node .asa/index.js impact <ID>` — 分析影响范围
+3. `node .asa/index.js propagate <ID>` — 执行级联更新
 
 ## 事务闭环
 编码结束后，执行：

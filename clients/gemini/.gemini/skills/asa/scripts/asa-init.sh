@@ -11,10 +11,11 @@ mkdir -p .asa/hooks
 
 # 1. matrix.yaml
 if [ ! -f .asa/matrix.yaml ]; then
-  cat > .asa/matrix.yaml << 'YAML'
+  cat > .asa/matrix.yaml << YAML
 meta:
   project: "__PROJECT__"
   phase: "discovery"
+  schemaVersion: 2
   docsExpectedDigest: "sha256:empty"
   docsActualDigest: "sha256:empty"
 risks: []
@@ -26,10 +27,20 @@ YAML
   echo "✅ .asa/matrix.yaml"
 fi
 
-# 2. 引擎
+# 2. 引擎（index.js + commands/ + lib/ + hooks/）
 if [ -f "$HOME/.asa/index.js" ]; then
   cp "$HOME/.asa/index.js" .asa/index.js
   echo "✅ .asa/index.js"
+fi
+if [ -d "$HOME/.asa/commands" ]; then
+  mkdir -p .asa/commands
+  cp "$HOME/.asa/commands/"*.js .asa/commands/ 2>/dev/null
+  echo "✅ .asa/commands/"
+fi
+if [ -d "$HOME/.asa/lib" ]; then
+  mkdir -p .asa/lib
+  cp "$HOME/.asa/lib/"*.js .asa/lib/ 2>/dev/null
+  echo "✅ .asa/lib/"
 fi
 
 # 3. Hook 脚本
@@ -56,7 +67,7 @@ fi
 
 # 5. Hooks 配置（Tier 2+）
 if [ "$TIER" != "tier1" ]; then
-  cat > .gemini/settings.json << 'CFG'
+  cat > .gemini/settings.json << CFG
 {
   "hooks": {
     "BeforeTool": [

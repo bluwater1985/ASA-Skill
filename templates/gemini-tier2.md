@@ -17,8 +17,12 @@
 4. 编码前先说明改哪些文件、不改哪些文件。
 
 ## 变更管理
-当用户提出需求变更时，执行拓扑分析工具，禁止肉眼数线：
-node .asa/index.js traverse <节点ID>
+当用户提出需求变更时，执行影响分析，禁止肉眼数线：
+node .asa/index.js impact <节点ID>
+
+变更传播链路：
+1. node .asa/index.js impact <ID> — 分析影响范围
+2. node .asa/index.js propagate <ID> — 执行级联更新
 
 ## 事务闭环
 编码结束后，执行：

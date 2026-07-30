@@ -27,7 +27,7 @@ const PROJECT_ROOT = findProjectRoot(SCRIPT_DIR);
 
 // ── 入口分流 ──
 if (process.argv[2] && !process.argv[2].includes('--')) {
-  validateAndExit(process.argv[1] || '', 'claude');
+  validateAndExit(process.argv[2] || '', 'claude');
 } else {
   let data = '';
   process.stdin.on('data', chunk => { data += chunk; });

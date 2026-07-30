@@ -29,7 +29,9 @@ ASA 的引擎代码和模板文件存储在 `~/.asa/` 目录下：
 
 ```
 ~/.asa/
-├── index.js                    # 5 命令引擎（零依赖）
+├── index.js                    # CLI 路由（零依赖）
+├── commands/                   # 命令模块
+├── lib/                        # 库模块
 ├── hooks/
 │   ├── check-work-order.js     # PreToolUse 状态拦截（双模脚本）
 │   └── validate-yaml.js        # PostToolUse YAML 校验（双模脚本）
@@ -61,10 +63,18 @@ ASA 的引擎代码和模板文件存储在 `~/.asa/` 目录下：
 mkdir -p .asa/nodes/requirements .asa/nodes/architecture .asa/nodes/tasks .asa/hooks
 ```
 
-### Step 3: 复制引擎和 Hook 脚本
+### Step 3: 复制引擎、模块和 Hook 脚本
 
 ```bash
+# 主入口
 cp ~/.asa/index.js .asa/index.js
+# 命令模块
+mkdir -p .asa/commands
+cp ~/.asa/commands/*.js .asa/commands/
+# 库模块
+mkdir -p .asa/lib
+cp ~/.asa/lib/*.js .asa/lib/
+# Hook 脚本
 cp ~/.asa/hooks/check-work-order.js .asa/hooks/
 cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 ```

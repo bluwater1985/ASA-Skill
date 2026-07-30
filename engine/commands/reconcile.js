@@ -1,0 +1,96 @@
+// engine/commands/reconcile.js — 状态一致性修复 + 存量迁移
+const fs = require('fs');
+const path = require('path');
+const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml } = require('../lib/matrix.js');
+
+// 存量状态 → 新状态机映射表
+const MIGRATION_MAP = {
+  'REQ':  { pending: 'proposed' },
+  'ARCH': { pending: 'draft' },
+  'TASK': { pending: 'pending', done: 'completed', in_progress: 'in_progress' },
+};
+
+function getNodeType(id) {
+  if (!id || typeof id !== 'string') return null;
+  return id.split('-')[0];
+}
+
+function migrateNodes(nodes) {
+  let migrated = false;
+  for (const [id, node] of Object.entries(nodes)) {
+    const type = getNodeType(id);
+    if (!type) continue;
+    const typeMap = MIGRATION_MAP[type];
+    if (!typeMap) continue;
+
+    const oldStatus = node.status;
+    const newStatus = typeMap[oldStatus];
+    if (newStatus && newStatus !== oldStatus) {
+      node.status = newStatus;
+      node.version = node.version || 1;
+      if (!node.changeLog) node.changeLog = [];
+      if (!node.pendingPropagation) node.pendingPropagation = [];
+      console.log(`[ASA] 迁移: ${id} status: ${oldStatus} → ${newStatus}`);
+      migrated = true;
+    }
+  }
+  return migrated;
+}
+
+function run() {
+  const matrix = loadMatrix();
+  const nodes = loadAllNodes();
+
+  // 存量迁移（schemaVersion 检查）
+  if (!matrix.meta || !matrix.meta.schemaVersion) {
+    matrix.meta = matrix.meta || {};
+    const migrated = migrateNodes(nodes);
+    if (migrated) {
+      // 写回已迁移的节点文件
+      for (const [id, node] of Object.entries(nodes)) {
+        const cat = node.__category;
+        if (!cat) continue;
+        delete node.__category;
+        atomicWriteYaml(
+          path.join(process.cwd(), `.asa/nodes/${cat}/${id}.yaml`),
+          node
+        );
+        node.__category = cat;
+      }
+      matrix.meta.schemaVersion = 2;
+      saveMatrix(matrix); // 立即持久化 schemaVersion
+    } else {
+      matrix.meta.schemaVersion = 1;
+      saveMatrix(matrix);
+    }
+    console.log(`[ASA] schemaVersion: ${matrix.meta.schemaVersion}`);
+  }
+
+  // TASK 状态一致性修复（原有逻辑）
+  let hasChanges = false;
+  if (matrix.tasks) {
+    for (const [taskId, summary] of Object.entries(matrix.tasks)) {
+      if (nodes[taskId] && nodes[taskId].status !== summary.status) {
+        console.log(`[ASA] 🔄 断裂事务修复: ${taskId} [${summary.status}] → [${nodes[taskId].status}]`);
+        matrix.tasks[taskId].status = nodes[taskId].status;
+        hasChanges = true;
+      }
+    }
+  }
+
+  const currentDigest = calculateDocsDigest();
+  if (matrix.meta?.docsActualDigest !== currentDigest) {
+    matrix.meta.docsActualDigest = currentDigest;
+    hasChanges = true;
+  }
+
+  if (hasChanges) saveMatrix(matrix);
+
+  const activeTask = matrix.meta?.activeTask || '(none)';
+  const phase = matrix.meta?.phase || '(unknown)';
+  const total = matrix.tasks ? Object.keys(matrix.tasks).length : 0;
+  const done = matrix.tasks ? Object.values(matrix.tasks).filter(t => t.status === 'done').length : 0;
+  console.log(`[ASA STATUS] Phase: ${phase} | ActiveTask: ${activeTask} | Tasks: ${done}/${total} done`);
+}
+
+module.exports = { run };

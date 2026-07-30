@@ -29,7 +29,7 @@ const matrixPath = path.join(PROJECT_ROOT, '.asa/matrix.yaml');
 
 // ── 入口分流 ──
 if (process.argv[2] && !process.argv[2].includes('--')) {
-  checkAndExit(process.argv[1] || '', 'claude');
+  checkAndExit(process.argv[2] || '', 'claude');
 } else {
   let data = '';
   process.stdin.on('data', chunk => { data += chunk; });

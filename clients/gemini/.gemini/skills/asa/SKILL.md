@@ -66,6 +66,9 @@ mkdir -p .asa/nodes/requirements .asa/nodes/architecture .asa/nodes/tasks .asa/h
 #### 复制引擎
 ```bash
 cp ~/.asa/index.js .asa/index.js
+mkdir -p .asa/commands .asa/lib
+cp ~/.asa/commands/*.js .asa/commands/ 2>/dev/null
+cp ~/.asa/lib/*.js .asa/lib/ 2>/dev/null
 cp ~/.asa/hooks/check-work-order.js .asa/hooks/
 cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 chmod +x .asa/hooks/*.js
@@ -80,6 +83,7 @@ chmod +x .asa/hooks/*.js
 meta:
   project: "<项目名称>"
   phase: "discovery"
+  schemaVersion: 2
   docsExpectedDigest: "sha256:empty"
   docsActualDigest: "sha256:empty"
 risks: []

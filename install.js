@@ -43,21 +43,42 @@ console.log(`🚀 安装 ASA — ${client === 'claude' ? 'Claude Code' : 'Gemini
 const srcDir = __dirname;
 const errors = [];
 
-// 1. 复制引擎到 ~/.asa
+// 1. 复制引擎到 ~/.asa（递归复制 engine/ 全部内容）
 const engineDest = path.join(homedir, '.asa');
+fs.mkdirSync(path.join(engineDest, 'commands'), { recursive: true });
+fs.mkdirSync(path.join(engineDest, 'lib'), { recursive: true });
 fs.mkdirSync(path.join(engineDest, 'hooks'), { recursive: true });
 fs.mkdirSync(path.join(engineDest, 'templates'), { recursive: true });
 fs.mkdirSync(path.join(engineDest, 'skeleton'), { recursive: true });
 
-const engineFiles = [
-  ['engine/index.js', 'index.js'],
-  ['engine/hooks/check-work-order.js', 'hooks/check-work-order.js'],
-  ['engine/hooks/validate-yaml.js', 'hooks/validate-yaml.js'],
-];
-for (const [src, dest] of engineFiles) {
-  try {
-    fs.copyFileSync(path.join(srcDir, src), path.join(engineDest, dest));
-  } catch (e) { errors.push(`${src}: ${e.message}`); }
+// 复制 index.js
+copyIfExists('engine/index.js', engineDest, 'index.js');
+// 复制 commands/
+for (const f of readDirIfExists('engine/commands') || []) {
+  copyIfExists(`engine/commands/${f}`, path.join(engineDest, 'commands'), f);
+}
+// 复制 lib/
+for (const f of readDirIfExists('engine/lib') || []) {
+  // 跳过测试文件
+  if (f.endsWith('.test.js')) continue;
+  copyIfExists(`engine/lib/${f}`, path.join(engineDest, 'lib'), f);
+}
+// 复制 hooks/
+for (const f of readDirIfExists('engine/hooks') || []) {
+  copyIfExists(`engine/hooks/${f}`, path.join(engineDest, 'hooks'), f);
+}
+
+function copyIfExists(srcRel, destDir, destName) {
+  const srcFull = path.join(srcDir, srcRel);
+  if (!fs.existsSync(srcFull)) return;
+  try { fs.copyFileSync(srcFull, path.join(destDir, destName)); }
+  catch (e) { errors.push(`${srcRel}: ${e.message}`); }
+}
+
+function readDirIfExists(dirRel) {
+  const full = path.join(srcDir, dirRel);
+  if (!fs.existsSync(full)) return [];
+  return fs.readdirSync(full);
 }
 console.log(`✅ 引擎 → ${engineDest}`);
 
