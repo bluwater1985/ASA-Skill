@@ -23,7 +23,11 @@ function run(what, value) {
       console.log('[ASA] ✅ 活跃任务已清除');
       return;
     }
-    // 校验任务节点存在
+    // 校验必须是 TASK 节点
+    if (!value.startsWith('TASK-')) {
+      console.error(`[ASA] ❌ 活跃任务必须是 TASK 节点（收到: ${value}）`);
+      process.exit(1);
+    }
     const nodes = loadAllNodes();
     if (!nodes[value]) {
       console.error(`[ASA] ❌ 任务 ${value} 不存在（可用节点: ${Object.keys(nodes).filter(n => n.startsWith('TASK-')).join(', ') || '无'}）`);

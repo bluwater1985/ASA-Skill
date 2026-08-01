@@ -3,8 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const { loadAllNodes } = require('../lib/matrix.js');
 
-// REQ 变更会触发传播链；ARCH/TASK 变更不触发
-const PROPAGATES = { 'REQ': true, 'ARCH': true, 'TASK': false };
+// REQ 是传播链唯一入口；ARCH/TASK 变更不触发传播链
+const PROPAGATES = { 'REQ': true, 'ARCH': false, 'TASK': false };
 
 function run(cmd, id) {
   if (!id) {
@@ -41,13 +41,15 @@ function run(cmd, id) {
 
   if (PROPAGATES[type]) {
     console.log(`  编辑完成后，请按以下步骤驱动传播链:`);
-    console.log(`    1. 在 ${id}.yaml 中追加 pendingPropagation 条目:`);
+    console.log(`    1. 在 ${id}.yaml 中追加 pendingPropagation 条目（使用多行嵌套格式）:`);
     console.log(`       pendingPropagation:`);
     console.log(`         - changeVersion: <当前版本+1>`);
     console.log(`           status: pending`);
     console.log(`           affectedNodes:`);
     console.log(`             - id: <受影响节点ID>`);
-    console.log(`               action: { type: set_status|append_to_array|set_field, ... }`);
+    console.log(`               action:`);
+    console.log(`                 type: set_status   # 或 append_to_array / set_field / replace_in_array`);
+    console.log(`                 value: <目标值>`);
     console.log(`    2. node .asa/index.js impact ${id}   # 查看影响`);
     console.log(`    3. node .asa/index.js propagate ${id}  # 执行级联更新（幂等）`);
   } else {

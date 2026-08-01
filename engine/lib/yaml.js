@@ -5,10 +5,45 @@ function isQuoted(s) {
   return (s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"));
 }
 
+// 双引号字符串转义（用于 stringify）
+function escapeDq(s) {
+  let out = '';
+  for (const ch of s) {
+    if (ch === '\\') out += '\\\\';
+    else if (ch === '"') out += '\\"';
+    else if (ch === '\n') out += '\\n';
+    else out += ch;
+  }
+  return out;
+}
+
+// 双引号字符串反解（用于 parse）
+function unescapeDq(s) {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\' && i + 1 < s.length) {
+      const c = s[i + 1];
+      if (c === 'n') { out += '\n'; i++; }
+      else if (c === '\\') { out += '\\'; i++; }
+      else if (c === '"') { out += '"'; i++; }
+      else out += s[i]; // 未知转义，保留反斜杠
+    } else {
+      out += s[i];
+    }
+  }
+  return out;
+}
+
 function parseScalar(s) {
   s = s.trim();
-  if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1).replace(/\\"/g, '"');
+  // 引号包裹 → 不剥离内联注释
+  if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
+  // 未引号值 → 剥离内联注释（空格后 # 起始；#ff0000 这类无前置空格不剥离）
+  if (!s.startsWith('[') && !s.startsWith('{')) {
+    const commentIdx = s.indexOf(' #');
+    if (commentIdx >= 0) s = s.slice(0, commentIdx).trimEnd();
+  }
   if (s === '{}') return {};
   if (s.startsWith('[') && s.endsWith(']')) {
     const inner = s.slice(1, -1).trim();
@@ -33,11 +68,11 @@ function parseScalar(s) {
 
 function stringifyScalar(v) {
   if (typeof v === 'string') {
-    // 需要引号包裹的情况：内容含特殊字符，或可能被 parseScalar 重新解释
+    // 需要引号包裹的情况：内容含特殊字符、换行，或可能被 parseScalar 重新解释
     const needsQuoting = v.includes(': ') || v.includes('#') || v.startsWith('-') || v === '' ||
-      v.includes("'") || v.includes('"') ||
+      v.includes('\n') || v.includes('\\') || v.includes("'") || v.includes('"') ||
       /^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false' || v === 'null' || v === '~';
-    if (needsQuoting) return `"${v.replace(/"/g, '\\"')}"`;
+    if (needsQuoting) return `"${escapeDq(v)}"`;
     return v;
   }
   if (typeof v === 'number' && !Number.isInteger(v)) return v.toString();

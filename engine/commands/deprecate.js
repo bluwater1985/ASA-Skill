@@ -86,6 +86,15 @@ function run(id) {
     console.log(`  共 ${taskCount} 个 TASK 已标记为 cancelled`);
   }
 
+  // 若被废弃/级联取消的节点是当前活跃任务，清除 activeTask
+  const activeWas = matrix.meta?.activeTask;
+  if (activeWas && activeWas !== '(none)' &&
+    (id === activeWas || downstream.some(d => d.id === activeWas))) {
+    matrix.meta.activeTask = '(none)';
+    saveMatrix(matrix);
+    console.log(`  [INFO] 活跃任务 ${activeWas} 已被清除`);
+  }
+
   // 运行 reconcile 确保 matrix 同步
   try {
     const { run: reconcile } = require('./reconcile.js');

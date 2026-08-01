@@ -63,7 +63,7 @@ asa/
 ├── install.js                       # 跨平台安装脚本（推荐）
 ├── README.md
 ├── engine/                          # 共用引擎
-│   ├── index.js                     # 5 命令引擎
+│   ├── index.js                     # 多命令引擎（compile, status, impact, propagate 等）
 │   └── hooks/
 │       ├── check-work-order.js      # 状态拦截器
 │       └── validate-yaml.js         # YAML 校验器

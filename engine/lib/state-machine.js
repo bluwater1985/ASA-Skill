@@ -10,7 +10,7 @@ const TRANSITIONS = {
     approved:     ['implemented', 'modified', 'deprecated'],
     implemented:  ['modified', 'deprecated'],
     modified:     ['approved', 'rejected', 'deprecated'],
-    rejected:     [],            // 吸收态（不可变）
+    rejected:     ['proposed'],  // 误拒绝可重新提交
     deprecated:   [],            // 吸收态
   },
   ARCH: {

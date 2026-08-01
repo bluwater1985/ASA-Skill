@@ -384,6 +384,30 @@ describe('review findings', () => {
     assert.deepEqual(result.items, ['a', 'b, c', 'd']);
   });
 
+  it('multiline string survives round-trip', () => {
+    const obj = { desc: '第一行\n第二行' };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.equal(back.desc, '第一行\n第二行');
+  });
+
+  it('inline comment stripped from value', () => {
+    const result = parseAsaYaml('title: 需求A # 这是注释');
+    assert.equal(result.title, '需求A');
+  });
+
+  it('hash without preceding space kept in value', () => {
+    const result = parseAsaYaml('color: #ff0000');
+    assert.equal(result.color, '#ff0000');
+  });
+
+  it('backslash in string survives round-trip', () => {
+    const obj = { path: 'C:\\proj\\.asa' };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.equal(back.path, 'C:\\proj\\.asa');
+  });
+
   it('string containing inner double quotes serializes safely', () => {
     const obj = { text: 'it\'s "done" now' };
     const s = stringifyAsaYaml(obj);

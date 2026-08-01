@@ -29,6 +29,11 @@ function executeAction(node, action) {
     }
     case 'append_to_array': {
       if (!target) return 'failed';
+      // 目标已存在且非数组 → 拒绝，避免静默覆盖原值
+      if (node[target] !== undefined && !Array.isArray(node[target])) {
+        console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，append 拒绝（当前值: ${JSON.stringify(node[target])}）`);
+        return 'failed';
+      }
       if (!Array.isArray(node[target])) node[target] = [];
       if (node[target].includes(value)) return 'skipped'; // 幂等
       node[target].push(value);
@@ -48,6 +53,11 @@ function executeAction(node, action) {
       if (!target) return 'failed';
       const old = value?.old;
       const neu = value?.new;
+      // 目标已存在且非数组 → 拒绝
+      if (node[target] !== undefined && !Array.isArray(node[target])) {
+        console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，replace 拒绝`);
+        return 'failed';
+      }
       if (!Array.isArray(node[target])) node[target] = [];
       const idx = node[target].indexOf(old);
       if (idx === -1) return 'skipped'; // 无可替换 = 已是最新
@@ -141,19 +151,24 @@ function run(startId) {
     return;
   }
 
-  // 有实际变更：源节点递增版本 + 设为 modified + 记录 changelog
+  // 有实际变更：源节点递增版本 + 记录 changelog
   const oldVersion = source.version || 1;
   source.version = oldVersion + 1;
-  source.status = 'modified';
   if (!source.changeLog) source.changeLog = [];
-  // 设计文档要求同版本两条记录：状态变更 + 传播完成
-  source.changeLog.push({
-    date: new Date().toISOString().split('T')[0],
-    type: 'modified',
-    version: source.version,
-    summary: `状态变更: ${source.status} 传播触发`,
-    by: 'system',
-  });
+
+  // 仅 REQ 源节点自动置 modified（REQ 状态机存在该状态）
+  // ARCH/TASK 源节点不自动改状态，避免写入其状态机不存在的非法状态
+  const srcType = (startId || '').split('-')[0];
+  if (srcType === 'REQ') {
+    source.status = 'modified';
+    source.changeLog.push({
+      date: new Date().toISOString().split('T')[0],
+      type: 'modified',
+      version: source.version,
+      summary: `状态变更: 传播触发`,
+      by: 'system',
+    });
+  }
   source.changeLog.push({
     date: new Date().toISOString().split('T')[0],
     type: 'propagation_done',

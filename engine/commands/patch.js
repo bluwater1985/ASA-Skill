@@ -2,13 +2,15 @@
 const path = require('path');
 const fs = require('fs');
 const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml } = require('../lib/matrix.js');
-const { parseAsaYaml, stringifyAsaYaml } = require('../lib/yaml.js');
+const { appendChangeLog } = require('../lib/changelog.js');
 
 const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 function run() {
   const matrix = loadMatrix();
-  if (matrix.meta.docsExpectedDigest === matrix.meta.docsActualDigest) return;
+  // 用物理 digest 判断（而非 matrix 里存储的旧 digest），使 patch 单独运行即自洽
+  const physicalDigest = calculateDocsDigest();
+  if (physicalDigest === matrix.meta?.docsExpectedDigest) return;
 
   if (!fs.existsSync(DOCS_DIR)) {
     console.log('[ASA] docs/ 目录不存在，跳过反向同步');
@@ -48,6 +50,8 @@ function run() {
       if (criteria) {
         if (JSON.stringify(node.acceptanceCriteria) !== JSON.stringify(criteria)) {
           node.acceptanceCriteria = criteria;
+          // 记录变更 + 递增版本，保证可追溯
+          appendChangeLog(node, 'modified', `docs 反向同步: 更新 acceptanceCriteria`);
           const cat = node.__category;
           delete node.__category;
           atomicWriteYaml(

@@ -28,7 +28,7 @@
 
 ## Work Order 强契约
 M/L 级 Task 必须包含完整的 blast_radius、inputs、outputs 定义。
-CI 会校验 outputs 是否全部产生、filesModified 是否在 blast_radius 内。
+CI（validate）会校验节点文件存在性、docs digest 一致性、以及未完成的传播条目。
 
 ## 知识管理
 项目中已记录的业务约束和禁忌在 .asa/knowledge/lessons.yaml 中。

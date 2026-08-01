@@ -34,6 +34,11 @@ describe('REQ state machine', () => {
     assert.equal(r.valid, true);
   });
 
+  it('allows rejected → proposed (resubmit)', () => {
+    const r = validateTransition('REQ-001', 'rejected', 'proposed');
+    assert.equal(r.valid, true);
+  });
+
   it('rejects completed → in_progress', () => {
     const r = validateTransition('REQ-001', 'completed', 'in_progress');
     assert.equal(r.valid, false);
