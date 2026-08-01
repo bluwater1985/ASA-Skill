@@ -101,7 +101,7 @@ function runNode(prefix, args) {
   try {
     const { run: compile } = require('./compile.js');
     compile();
-  } catch (e) { /* docs 编译失败不影响创建 */ }
+  } catch (e) { console.warn(`[ASA] ⚠️ compile 失败，docs/digest 可能过期: ${e.message}`); }
 }
 
 module.exports = { run: runNode };

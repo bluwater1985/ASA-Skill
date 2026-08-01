@@ -270,22 +270,42 @@ function cleanupPlaceholders(node) {
 // ── 序列化 ──
 
 // 序列化数组（不含 key 行，只输出 `- item` 项），用于顶层与嵌套数组
+// 序列化「作为外层数组元素的内层数组」：用 flow 语法 `- [a, b]`（解析器原生支持，round-trip 无损）
+function flowStringify(v) {
+  if (Array.isArray(v)) return '[' + v.map(e => flowStringify(e)).join(', ') + ']';
+  if (typeof v === 'object' && v !== null) {
+    const entries = Object.entries(v);
+    return '{' + entries.map(([k, val]) => `${k}: ${flowStringify(val)}`).join(', ') + '}';
+  }
+  return stringifyScalar(v);
+}
+
+function stringifyAsaArrayElement(inner, outerPad) {
+  return `${outerPad}- ${flowStringify(inner)}\n`;
+}
+
 function stringifyAsaArray(arr, indent) {
   const pad = '  '.repeat(indent);
   let out = '';
   for (const item of arr) {
+    if (Array.isArray(item)) {
+      // 数组元素本身是数组 → 紧凑嵌套序列：`- - a\n  - b`
+      if (item.length === 0) { out += `${pad}- []\n`; continue; }
+      out += stringifyAsaArrayElement(item, pad);
+      continue;
+    }
     if (typeof item === 'object' && item !== null) {
       const entries = Object.entries(item);
       if (entries.length === 0) {
         out += `${pad}-\n`;
       } else {
         const [firstKey, firstVal] = entries[0];
-        if (typeof firstVal === 'object' && firstVal !== null && !Array.isArray(firstVal)) {
-          out += `${pad}- ${firstKey}:\n`;
-          out += stringifyAsaYaml(firstVal, indent + 2);
-        } else if (Array.isArray(firstVal)) {
-          out += `${pad}- ${firstKey}:\n`;
-          out += stringifyAsaArray(firstVal, indent + 2);
+        if (Array.isArray(firstVal)) {
+          // 空数组输出 []，避免 round-trip 被解析为空值占位符→null
+          out += firstVal.length === 0 ? `${pad}- ${firstKey}: []\n` : `${pad}- ${firstKey}:\n` + stringifyAsaArray(firstVal, indent + 2);
+        } else if (typeof firstVal === 'object' && firstVal !== null) {
+          // 空对象输出 {}，避免 round-trip 变 null
+          out += Object.keys(firstVal).length === 0 ? `${pad}- ${firstKey}: {}\n` : `${pad}- ${firstKey}:\n` + stringifyAsaYaml(firstVal, indent + 2);
         } else {
           out += `${pad}- ${firstKey}: ${stringifyScalar(firstVal)}\n`;
         }
@@ -293,11 +313,9 @@ function stringifyAsaArray(arr, indent) {
         for (let i = 1; i < entries.length; i++) {
           const [k, v] = entries[i];
           if (Array.isArray(v)) {
-            out += `${pad}  ${k}:\n`;
-            out += stringifyAsaArray(v, indent + 2);
+            out += v.length === 0 ? `${pad}  ${k}: []\n` : `${pad}  ${k}:\n` + stringifyAsaArray(v, indent + 2);
           } else if (typeof v === 'object' && v !== null) {
-            out += `${pad}  ${k}:\n`;
-            out += stringifyAsaYaml(v, indent + 2);
+            out += Object.keys(v).length === 0 ? `${pad}  ${k}: {}\n` : `${pad}  ${k}:\n` + stringifyAsaYaml(v, indent + 2);
           } else {
             out += `${pad}  ${k}: ${stringifyScalar(v)}\n`;
           }

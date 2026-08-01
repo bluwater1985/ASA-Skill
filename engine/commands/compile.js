@@ -18,38 +18,32 @@ function run() {
     const old = fs.readFileSync(docsPath, 'utf-8');
     const firstNode = old.indexOf('<!-- ASA-NODE:');
     const lastEnd = old.lastIndexOf('<!-- ASA-NODE-END -->');
-    if (firstNode < 0) {
-      // 文档无任何 ASA-NODE 标记 → 整份视为用户手写内容保留
-      userHeader = old.trim();
-      // 但剔除上次编译的 --- 分隔 + ASA-VERSION/ASA-COMPILED 锚点块，避免累积
-      userHeader = userHeader
-        .replace(/(?:\n?---\s*\n?)?<!-- ASA-VERSION:[^\n]*\n<!-- ASA-COMPILED:[^\n]*[\s\S]*$/, '')
-        .trimEnd();
-    } else if (firstNode > 0) {
-      userHeader = old.slice(0, firstNode).trimEnd();
-      // 剥离上次编译追加的尾部 --- 分隔线，避免每次 compile 累积
-      userHeader = userHeader.replace(/\n?---\s*$/, '').trimEnd();
+
+    // footer：最后一个 ASA-COMPILED 锚点之后的内容（锚点缺失则取最后一个节点块之后）
+    const anchorIdx = old.lastIndexOf('<!-- ASA-COMPILED:');
+    let footerStart = -1;
+    if (anchorIdx >= 0) {
+      const nl = old.indexOf('\n', anchorIdx);
+      if (nl >= 0) footerStart = nl + 1;
+    } else if (lastEnd >= 0) {
+      const endOfBlock = lastEnd + '<!-- ASA-NODE-END -->'.length;
+      const afterBlock = old.slice(endOfBlock);
+      const m = afterBlock.match(/\n?---\s*\n?(?:<!-- ASA-VERSION:[^\n]*\n)?([\s\S]*)$/);
+      if (m && m[1].trim()) footerStart = endOfBlock + (m[0].length - m[1].length);
     }
-    if (lastEnd >= 0) {
-      // 优先保留 ASA-COMPILED 锚点之后的用户手写内容
-      const anchorIdx = old.indexOf('<!-- ASA-COMPILED:', lastEnd);
-      let footerStart = -1;
-      if (anchorIdx >= 0) {
-        const nl = old.indexOf('\n', anchorIdx);
-        if (nl >= 0) footerStart = nl + 1;
-      } else {
-        // 锚点缺失（可能被人工删除）→ 降级为取最后一个 ASA-NODE-END 之后的内容
-        const endOfBlock = lastEnd + '<!-- ASA-NODE-END -->'.length;
-        const afterBlock = old.slice(endOfBlock);
-        // 跳过 --- 分隔线与可能残留的 VERSION 锚点
-        const m = afterBlock.match(/\n?---\s*\n?(?:<!-- ASA-VERSION:[^\n]*\n)?([\s\S]*)$/);
-        if (m && m[1].trim()) footerStart = endOfBlock;
-      }
-      if (footerStart >= 0) {
-        const footer = old.slice(footerStart).trim();
-        if (footer) userFooter = footer;
-      }
+    if (footerStart >= 0) {
+      const footer = old.slice(footerStart).trim();
+      if (footer) userFooter = footer;
     }
+
+    // header：锚点块之前 + 第一个 ASA-NODE 标记之前，取更早者；剥离旧 --- 与锚点
+    const anchorBlockStart = anchorIdx >= 0 ? old.lastIndexOf('<!-- ASA-VERSION:', anchorIdx) : -1;
+    const headEnd = Math.min(
+      firstNode >= 0 ? firstNode : old.length,
+      anchorBlockStart >= 0 ? anchorBlockStart : old.length
+    );
+    userHeader = old.slice(0, headEnd).trimEnd();
+    userHeader = userHeader.replace(/\n?---\s*$/, '').trimEnd();
   }
 
   let reqContent = userHeader ? `${userHeader}\n\n---\n\n` : '# 项目核心需求资产清单\n\n';
@@ -68,6 +62,8 @@ function run() {
         reqContent += `- ${lines[0]}\n`;
         for (let li = 1; li < lines.length; li++) reqContent += `  ${lines[li]}\n`;
       });
+    } else if (node.acceptanceCriteria !== undefined) {
+      console.warn(`[ASA] ⚠️ ${id} 的 acceptanceCriteria 不是数组（${typeof node.acceptanceCriteria}），compile 不渲染，patch 将跳过反写`);
     }
     reqContent += `<!-- ASA-NODE-END -->\n\n---\n\n`;
   }

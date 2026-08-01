@@ -68,7 +68,7 @@ function loadAllNodes() {
   for (const cat of categories) {
     const dir = path.join(process.cwd(), `.asa/nodes/${cat}`);
     if (!fs.existsSync(dir)) continue;
-    for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
+    for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml')).sort()) {
       const id = path.basename(file, '.yaml');
       try {
         nodes[id] = parseAsaYaml(fs.readFileSync(path.join(dir, file), 'utf-8'));

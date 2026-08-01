@@ -58,7 +58,10 @@ function run() {
         }
       }
 
-      if (criteria) {
+      // 节点原值为非数组（手写标量）时跳过反写，避免静默替换为 []
+      if (node.acceptanceCriteria !== undefined && !Array.isArray(node.acceptanceCriteria)) {
+        console.warn(`[ASA] ⚠️ ${id} 的 acceptanceCriteria 不是数组（${typeof node.acceptanceCriteria}），跳过反向同步，保留原值`);
+      } else if (criteria) {
         if (JSON.stringify(node.acceptanceCriteria) !== JSON.stringify(criteria)) {
           node.acceptanceCriteria = criteria;
           // 记录变更 + 递增版本，保证可追溯
@@ -85,7 +88,7 @@ function run() {
   } else {
     // 无可反向同步的变更：docs 与节点不一致（如人类只改了优先级行）。
     // 以节点为准重建 docs，避免 digest 假一致导致 validate 永久失败。
-    console.warn('[ASA] ⚠️ docs 中无可反向同步的字段变更（如优先级/状态/标题等手工修改），将以节点为准重建，这些手工改动会被覆盖。请改 nodes/ 下的节点文件。');
+    console.warn('[ASA] ⚠️ docs 节点块内的字段行（优先级/状态/标题等）将以节点为准重建；header/footer 手写内容会保留。如需改字段，请改 nodes/ 下的节点文件。');
     const { run: compile } = require('./compile.js');
     compile();
   }

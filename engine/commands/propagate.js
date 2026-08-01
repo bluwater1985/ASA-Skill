@@ -217,7 +217,7 @@ function run(startId) {
     const m = loadMatrix();
     rebuildSummary(m, loadAllNodes());
     saveM(m);
-  } catch (e) { /* 摘要重建失败不影响主流程 */ }
+  } catch (e) { console.warn(`[ASA] ⚠️ compile 失败，docs/digest 可能过期: ${e.message}`); }
 
   try {
     const { run: compile } = require('./compile.js');

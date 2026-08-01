@@ -28,7 +28,9 @@ function run(id) {
     process.exit(1);
   }
 
-  const currentStatus = node.status || 'pending';
+  // 缺失 status 按类型回退初始态（与 status.js 一致）
+  const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
+  const currentStatus = node.status || INITIAL[type] || 'pending';
   const trans = validateTransition(id, currentStatus, terminalState);
   if (!trans.valid) {
     console.error(`[ASA] ❌ ${trans.error}`);
