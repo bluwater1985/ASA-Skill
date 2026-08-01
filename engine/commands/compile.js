@@ -19,21 +19,31 @@ function run() {
     const firstNode = old.indexOf('<!-- ASA-NODE:');
     const lastEnd = old.lastIndexOf('<!-- ASA-NODE-END -->');
 
-    // footer：最后一个 ASA-COMPILED 锚点之后的内容（锚点缺失则取最后一个节点块之后）
+    // footer：节点块与锚点之间的「中部」内容 + 最后一个 ASA-COMPILED 锚点之后的内容
     const anchorIdx = old.lastIndexOf('<!-- ASA-COMPILED:');
-    let footerStart = -1;
-    if (anchorIdx >= 0) {
-      const nl = old.indexOf('\n', anchorIdx);
-      if (nl >= 0) footerStart = nl + 1;
-    } else if (lastEnd >= 0) {
+    const versionIdx = old.lastIndexOf('<!-- ASA-VERSION:');
+    if (lastEnd >= 0) {
       const endOfBlock = lastEnd + '<!-- ASA-NODE-END -->'.length;
       const afterBlock = old.slice(endOfBlock);
-      const m = afterBlock.match(/\n?---\s*\n?(?:<!-- ASA-VERSION:[^\n]*\n)?([\s\S]*)$/);
-      if (m && m[1].trim()) footerStart = endOfBlock + (m[0].length - m[1].length);
-    }
-    if (footerStart >= 0) {
-      const footer = old.slice(footerStart).trim();
-      if (footer) userFooter = footer;
+      // 分离中部内容（节点块之后、锚点块之前）
+      let middle = '';
+      if (versionIdx > endOfBlock) {
+        middle = old.slice(endOfBlock, versionIdx);
+      } else if (anchorIdx < 0) {
+        // 无锚点：节点块之后的全部视为中部
+        const m = afterBlock.match(/\n?---\s*\n?([\s\S]*)$/);
+        if (m) middle = m[1];
+      }
+      // 剔除中部内容中的 --- 分隔线
+      middle = middle.replace(/^\s*\n?---\s*\n?/, '').trim();
+      // 锚点之后的内容
+      let afterAnchors = '';
+      if (anchorIdx >= 0) {
+        const nl = old.indexOf('\n', anchorIdx);
+        if (nl >= 0) afterAnchors = old.slice(nl + 1).trim();
+      }
+      const merged = [middle, afterAnchors].filter(Boolean).join('\n\n');
+      if (merged) userFooter = merged;
     }
 
     // header：锚点块之前 + 第一个 ASA-NODE 标记之前，取更早者；剥离旧 --- 与锚点

@@ -71,6 +71,10 @@ function splitFlow(inner) {
 function parseScalar(s) {
   // 先剥离引号外的行尾注释，再做引号/数组/对象判定
   s = stripInlineComment(s);
+  // 块标量标记（| / > / |- / >-）不支持 → 显式报错，杜绝静默吞内容
+  if (/^[|>][-+]?\s*$/.test(s)) {
+    throw new Error(`不支持 YAML 块标量（${s}），请改用引号字符串`);
+  }
   if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
   if (s === '{}') return {};
@@ -104,7 +108,9 @@ function stringifyScalar(v) {
     // 需要引号包裹的情况：内容含特殊字符、换行，或可能被 parseScalar 重新解释
     // 会被 parseScalar 重新解释为 flow 集合的字符串必须加引号
     const flowCollection = (v.startsWith('[') && v.endsWith(']')) || (v.startsWith('{') && v.endsWith('}'));
-    const needsQuoting = flowCollection || v.includes(': ') || v.includes('#') || v.startsWith('-') || v === '' ||
+    // 含冒号（URL/时间/路径）或首尾空白都必须加引号，否则会被解析器误判/剥白
+    const needsQuoting = flowCollection || v.includes(':') || v.trim() !== v ||
+      v.includes('#') || v.startsWith('-') || v === '' ||
       v.includes('\n') || v.includes('\t') || v.includes('\\') || v.includes("'") || v.includes('"') ||
       /^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false' || v === 'null' || v === '~';
     if (needsQuoting) return `"${escapeDq(v)}"`;
@@ -189,6 +195,10 @@ function parseAsaYaml(text) {
         stack.push({ indent, obj: item });
       } else if (isQuoted(itemContent)) {
         // 引号包裹的标量: \n  - "key: value" → 不是对象
+        arr.push(parseScalar(itemContent));
+      } else if ((itemContent.startsWith('[') && itemContent.endsWith(']')) ||
+                 (itemContent.startsWith('{') && itemContent.endsWith('}'))) {
+        // flow 集合（即使含冒号）：\n  - [a:b, c] / - {k: v} → 交给 parseScalar
         arr.push(parseScalar(itemContent));
       } else if (itemContent.includes(':')) {
         // 对象数组项: \n  - key: value\n    subkey: val

@@ -9,15 +9,12 @@ const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 function loadMatrix() {
   if (!fs.existsSync(MATRIX_PATH)) {
-    console.error('[ASA] 错误: 找不到 .asa/matrix.yaml 文件');
-    process.exit(1);
+    throw new Error('找不到 .asa/matrix.yaml 文件');
   }
   try {
     return parseAsaYaml(fs.readFileSync(MATRIX_PATH, 'utf-8'));
   } catch (e) {
-    console.error(`[ASA] ❌ .asa/matrix.yaml 解析失败: ${e.message}`);
-    console.error('  请修复该文件，或将其重命名后运行 reconcile 从 nodes/ 重建');
-    process.exit(1);
+    throw new Error(`.asa/matrix.yaml 解析失败: ${e.message}。请修复该文件，或将其重命名后运行 reconcile 从 nodes/ 重建`);
   }
 }
 
@@ -56,7 +53,9 @@ function calculateNodesDigest() {
   if (files.length === 0) return 'sha256:empty';
   const hash = crypto.createHash('sha256');
   for (const rel of files.sort()) {
-    hash.update(rel + '\0' + fs.readFileSync(path.join(nodesDir, rel), 'utf-8'));
+    // CRLF→LF 归一化，抹平 Windows/Mac/Linux 换行差异（与 calculateDocsDigest 一致）
+    const content = fs.readFileSync(path.join(nodesDir, rel), 'utf-8').replace(/\r\n/g, '\n');
+    hash.update(rel + '\0' + content);
   }
   return `sha256:${hash.digest('hex')}`;
 }
@@ -83,10 +82,8 @@ function loadAllNodes() {
     }
   }
   if (errors.length > 0) {
-    console.error(`[ASA] ❌ ${errors.length} 个节点文件解析失败：`);
-    errors.slice(0, 5).forEach(err => console.error(`  - ${err}`));
-    console.error('  请用 validate-yaml hook 定位问题，或修复这些文件后重试。');
-    process.exit(1);
+    const detail = errors.slice(0, 5).map(e => `  - ${e}`).join('\n');
+    throw new Error(`${errors.length} 个节点文件解析失败：\n${detail}\n  请用 validate-yaml hook 定位问题，或修复这些文件后重试`);
   }
   return nodes;
 }
