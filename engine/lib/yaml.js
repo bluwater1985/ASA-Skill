@@ -75,18 +75,37 @@ function parseScalar(s) {
   if (/^[|>][-+]?\s*$/.test(s)) {
     throw new Error(`不支持 YAML 块标量（${s}），请改用引号字符串`);
   }
-  // 未闭合引号/方括号/花括号 → 显式报错，避免脏字符串进入数据
-  if (s.startsWith('"') && (s.match(/"/g) || []).length % 2 !== 0) {
+  // 未闭合引号/方括号/花括号 → 显式报错（转义感知 + 引号外才计括号）
+  const unescapedCount = (t, ch) => {
+    let n = 0;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] === '\\') { i++; continue; }
+      if (t[i] === ch) n++;
+    }
+    return n;
+  };
+  const outsideQuoteBrackets = (t) => {
+    let o = 0, c = 0, quote = null;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] === '\\') { i++; continue; }
+      if (quote) { if (t[i] === quote) quote = null; continue; }
+      if (t[i] === '"' || t[i] === "'") { quote = t[i]; continue; }
+      if (t[i] === '[' || t[i] === '{') o++;
+      if (t[i] === ']' || t[i] === '}') c++;
+    }
+    return { o, c };
+  };
+  if (s.startsWith('"') && unescapedCount(s, '"') % 2 !== 0) {
     throw new Error(`未闭合的双引号: "${s.slice(0, 30)}..."`);
   }
-  if (s.startsWith("'") && (s.match(/'/g) || []).length % 2 !== 0) {
+  if (s.startsWith("'") && unescapedCount(s, "'") % 2 !== 0) {
     throw new Error(`未闭合的单引号: '${s.slice(0, 30)}...'`);
   }
-  if (s.startsWith('[') && (s.match(/\[/g) || []).length !== (s.match(/\]/g) || []).length) {
-    throw new Error(`未闭合的方括号: ${s.slice(0, 30)}...`);
-  }
-  if (s.startsWith('{') && (s.match(/\{/g) || []).length !== (s.match(/\}/g) || []).length) {
-    throw new Error(`未闭合的花括号: ${s.slice(0, 30)}...`);
+  if (s.startsWith('[') || s.startsWith('{')) {
+    const { o, c } = outsideQuoteBrackets(s);
+    if (o !== c) {
+      throw new Error(`未闭合的括号: ${s.slice(0, 30)}...`);
+    }
   }
   if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
@@ -120,9 +139,11 @@ function stringifyScalar(v) {
   if (typeof v === 'string') {
     // 需要引号包裹的情况：内容含特殊字符、换行，或可能被 parseScalar 重新解释
     // 会被 parseScalar 重新解释为 flow 集合的字符串必须加引号
+    // 以 [ 或 { 开头（可能被误判为 flow 集合/未闭合）都必须加引号
+    const flowStart = v.startsWith('[') || v.startsWith('{');
     const flowCollection = (v.startsWith('[') && v.endsWith(']')) || (v.startsWith('{') && v.endsWith('}'));
     // 含冒号（URL/时间/路径）或首尾空白都必须加引号，否则会被解析器误判/剥白
-    const needsQuoting = flowCollection || v.includes(':') || v.trim() !== v ||
+    const needsQuoting = flowStart || flowCollection || v.includes(':') || v.trim() !== v ||
       /^[|>][-+]?$/.test(v) || // 块标量标记，避免写坏
       v.includes('#') || v.startsWith('-') || v === '' ||
       v.includes('\n') || v.includes('\t') || v.includes('\\') || v.includes("'") || v.includes('"') ||

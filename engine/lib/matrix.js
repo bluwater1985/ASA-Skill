@@ -14,7 +14,7 @@ function loadMatrix() {
   try {
     return parseAsaYaml(fs.readFileSync(MATRIX_PATH, 'utf-8'));
   } catch (e) {
-    throw new Error(`.asa/matrix.yaml 解析失败: ${e.message}。请修复该文件，或将其重命名后运行 reconcile 从 nodes/ 重建`);
+    throw new Error(`.asa/matrix.yaml 解析失败: ${e.message}。请修复该文件，或运行 reconcile（会从骨架重建，edges 需备份恢复）`);
   }
 }
 

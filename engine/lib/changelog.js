@@ -21,7 +21,8 @@ function appendChangeLog(node, type, summary, by) {
   ].includes(type);
 
   if (isStatusChange || type === 'propagation_done' || isSubstantive) {
-    node.version = (node.version || 1) + 1;
+    // 数值化后再递增，避免手写 "2"（字符串）被拼接成 "21"
+    node.version = (parseInt(node.version, 10) || 1) + 1;
   }
 
   const entry = {

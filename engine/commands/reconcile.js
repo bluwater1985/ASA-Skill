@@ -38,7 +38,22 @@ function migrateNodes(nodes) {
 }
 
 function run() {
-  const matrix = loadMatrix();
+  // matrix.yaml 缺失/损坏时自举：用骨架重建基础结构，再补 nodes/ 摘要
+  let matrix;
+  try {
+    matrix = loadMatrix();
+  } catch (e) {
+    console.warn(`[ASA] ⚠️ matrix.yaml 无法读取（${e.message}）`);
+    const { parseAsaYaml } = require('../lib/yaml.js');
+    const skeletonPath = path.join(process.cwd(), '.asa/skeleton/matrix.yaml');
+    matrix = parseAsaYaml(
+      fs.existsSync(skeletonPath)
+        ? fs.readFileSync(skeletonPath, 'utf-8')
+        : `meta:\n  phase: "discovery"\n  schemaVersion: 2\nrisks: []\nrequirements: {}\narchitecture: {}\ntasks: {}\nedges: []\n`
+    );
+    console.warn('[ASA] ⚠️ 已用骨架重建 matrix，edges 依赖关系需从备份恢复');
+    saveMatrix(matrix);
+  }
   const nodes = loadAllNodes();
 
   // 存量迁移（schemaVersion < 2 才执行，避免 schemaVersion=1 的项目永远无法迁移）

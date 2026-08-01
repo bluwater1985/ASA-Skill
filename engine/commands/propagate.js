@@ -163,7 +163,7 @@ function run(startId) {
   let sourceModified = false; // 是否真正置为 modified
 
   if (applied > 0) {
-    const oldVersion = source.version || 1;
+    const oldVersion = parseInt(source.version, 10) || 0;
     source.version = oldVersion + 1;
     if (!source.changeLog) source.changeLog = [];
 

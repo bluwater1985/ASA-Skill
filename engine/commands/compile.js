@@ -76,6 +76,8 @@ function run() {
   let reqContent = userHeader ? `${userHeader}\n\n---\n\n` : '# 项目核心需求资产清单\n\n';
   for (const [id, node] of Object.entries(nodes)) {
     if (node.__category !== 'requirements') continue;
+    // 手写笔记插在节点块之前（上一节点 END 与本节点 START 之间），与提取位置一致，逐次编译稳定
+    if (nodeNotes[id]) reqContent += `${nodeNotes[id]}\n\n`;
     reqContent += `<!-- ASA-NODE: ${id} -->\n`;
     reqContent += `## ${id}: ${node.title || '未命名'}\n\n`;
     reqContent += `- 优先级: ${node.priority || 'P1'}\n`;
@@ -93,8 +95,6 @@ function run() {
       console.warn(`[ASA] ⚠️ ${id} 的 acceptanceCriteria 不是数组（${typeof node.acceptanceCriteria}），compile 不渲染，patch 将跳过反写`);
     }
     reqContent += `<!-- ASA-NODE-END -->\n\n---\n\n`;
-    // 重新插入该节点之后的手写笔记
-    if (nodeNotes[id]) reqContent += `${nodeNotes[id]}\n\n`;
   }
 
   // 文档版本锚点：反映最新编译的节点版本

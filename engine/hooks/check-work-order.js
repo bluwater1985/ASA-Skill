@@ -82,8 +82,8 @@ function checkAndExit(target, mode) {
   if (target && target.includes('.asa/')) { allow(mode); return; }
   if (['init', 'discovery', 'architecture', 'task-breakdown'].includes(phase)) { allow(mode); return; }
 
-  // (none) 或空字符串视为「无活跃任务」
-  if (!activeTask || activeTask === '(none)') {
+  // (none)/null/空字符串均视为「无活跃任务」
+  if (!activeTask || activeTask === '(none)' || activeTask === 'null') {
     deny(mode, `当前没有活跃 Task（phase: ${phase}）。可能原因：其它会话已释放任务或状态过期。请先运行 node .asa/index.js reconcile 刷新状态摘要，再用 node .asa/index.js set active-task <TASK-ID> 激活任务。`);
     return;
   }
