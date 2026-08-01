@@ -47,19 +47,23 @@ node ~/.gemini/skills/asa/scripts/asa-init.js tier2
 
 ## 2. 初始化一个项目
 
+两个客户端**触发方式一致**，都用 `/asa init`：
+
 ### Claude Code
 
 ```
-/asa init
-# 或指定级别
-/asa init tier2
+/asa init            # 会问选哪个 Tier
+/asa init tier2      # 直接指定 Tier 2
 ```
 
 ### Gemini CLI
 
 ```
+/asa init            # 会问选哪个 Tier（与 Claude 体验一致）
+/asa init tier2      # 直接指定 Tier 2
+
+# 若版本不支持 /asa 斜杠（需 2026+ 技能斜杠激活版本），用自然语言：
 初始化 ASA
-# 或
 初始化 ASA Tier 2
 ```
 

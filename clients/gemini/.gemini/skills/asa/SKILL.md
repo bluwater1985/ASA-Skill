@@ -27,13 +27,17 @@ description: AI Software Architect（ASA）—— 在项目中初始化 ASA 工�
 
 AI 会询问选择哪个 Tier，然后自动搭建。
 
+> **版本要求**：斜杠命令 `/asa` 需要 Gemini CLI 支持「技能斜杠激活」的版本（2026 年起已支持）。若你的版本不支持 `/asa`，请用自然语言「初始化 ASA」触发，或升级 Gemini CLI。
+
 ## 初始化流程
 
 当用户要求初始化 ASA 时，按以下步骤执行：
 
 ### Step 1: 确认 Tier
 
-询问用户：
+如果用户**在命令中指定了 Tier**（如 `/asa init tier2` 或「初始化 ASA Tier 2」），**直接使用该 Tier，不再询问**。
+
+否则询问用户：
 
 > 你的项目适合哪个级别？
 > 1. **Tier 1 探索验证** — 个人 Demo / MVP，不设防御，直接开干
