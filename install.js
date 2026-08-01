@@ -54,19 +54,24 @@ fs.mkdirSync(path.join(engineDest, 'skeleton'), { recursive: true });
 
 // 复制 index.js
 copyIfExists('engine/index.js', engineDest, 'index.js');
-// 复制 commands/
+// 复制 commands/（跳过测试文件与测试辅助）
 for (const f of readDirIfExists('engine/commands') || []) {
+  if (isTestFile(f)) continue;
   copyIfExists(`engine/commands/${f}`, path.join(engineDest, 'commands'), f);
 }
 // 复制 lib/
 for (const f of readDirIfExists('engine/lib') || []) {
-  // 跳过测试文件
-  if (f.endsWith('.test.js')) continue;
+  if (isTestFile(f)) continue;
   copyIfExists(`engine/lib/${f}`, path.join(engineDest, 'lib'), f);
 }
 // 复制 hooks/
 for (const f of readDirIfExists('engine/hooks') || []) {
+  if (isTestFile(f)) continue;
   copyIfExists(`engine/hooks/${f}`, path.join(engineDest, 'hooks'), f);
+}
+
+function isTestFile(name) {
+  return name.endsWith('.test.js') || name === 'helpers.js';
 }
 
 function copyIfExists(srcRel, destDir, destName) {
