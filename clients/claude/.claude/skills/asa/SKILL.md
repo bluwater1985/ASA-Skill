@@ -60,7 +60,7 @@ ASA 的引擎代码和模板文件存储在 `~/.asa/` 目录下：
 ### Step 2: 创建 .asa/ 目录
 
 ```bash
-mkdir -p .asa/nodes/requirements .asa/nodes/architecture .asa/nodes/tasks .asa/hooks
+mkdir -p .asa/nodes/requirements .asa/nodes/architecture .asa/nodes/tasks .asa/hooks .asa/knowledge
 ```
 
 ### Step 3: 复制引擎、模块和 Hook 脚本
@@ -81,7 +81,7 @@ cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 
 ### Step 4: 创建/更新 matrix.yaml
 
-> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。清空或损坏后运行 `node .asa/index.js reconcile` 即可从 nodes/ 重建。
+> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。reconcile 可从 nodes/ 重建 requirements/architecture/tasks 摘要；但 edges 依赖关系与 meta 元数据只存在于 matrix.yaml，损坏后需从备份恢复。
 
 ```yaml
 meta:
@@ -181,7 +181,7 @@ echo "node .asa/index.js validate || exit 1" > .husky/pre-commit
 
 所有操作幂等：无论执行多少次 `/asa init`：
 - **`nodes/`**（需求、任务、架构）→ 永远不碰，这是不可丢的数据
-- **`matrix.yaml`**（摘要索引）→ 可更新，数据可从 nodes/ 重建（`node .asa/index.js reconcile`）
+- **`matrix.yaml`**（摘要索引）→ 可更新，摘要可从 nodes/ 重建（edges/meta 需备份）
 - **`CLAUDE.md`**（项目指令）→ 语义化合并，保留用户手写规约
 - **`settings.local.json`** → 按 name 更新，不重复注册
 - **`index.js` + `hooks/`** → 始终更新到最新引擎版本

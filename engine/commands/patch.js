@@ -34,7 +34,18 @@ function run() {
         const fieldRegex = /<!-- ASA-FIELD: acceptanceCriteria -->\n([\s\S]*?)(?=(<!-- ASA-|$))/;
         const fieldMatch = nodeMatch[1].match(fieldRegex);
         if (fieldMatch) {
-          criteria = fieldMatch[1].trim().split('\n').map(l => l.replace(/^-\s*/, '')).filter(Boolean);
+          // 分组解析：`- ` 开头是新 criterion，续行（缩进非 `- `）追加到上一条，保留换行
+          const lines = fieldMatch[1].split('\n');
+          const groups = [];
+          for (const line of lines) {
+            const m = line.match(/^-\s*(.*)$/);
+            if (m) {
+              groups.push(m[1]);
+            } else if (groups.length > 0 && line.trim() !== '') {
+              groups[groups.length - 1] += '\n' + line.trim();
+            }
+          }
+          criteria = groups.filter(Boolean);
         }
       } else {
         const titleRegex = new RegExp(`## ${id}:[\\s\\S]*?\\n([\\s\\S]*?)(?=(## |---|$))`);

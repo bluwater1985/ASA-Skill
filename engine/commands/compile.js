@@ -21,6 +21,10 @@ function run() {
     if (firstNode < 0) {
       // 文档无任何 ASA-NODE 标记 → 整份视为用户手写内容保留
       userHeader = old.trim();
+      // 但剔除上次编译的 --- 分隔 + ASA-VERSION/ASA-COMPILED 锚点块，避免累积
+      userHeader = userHeader
+        .replace(/\n?---\s*\n?<!-- ASA-VERSION:[^\n]*\n<!-- ASA-COMPILED:[^\n]*[\s\S]*$/, '')
+        .trimEnd();
     } else if (firstNode > 0) {
       userHeader = old.slice(0, firstNode).trimEnd();
       // 剥离上次编译追加的尾部 --- 分隔线，避免每次 compile 累积
@@ -49,7 +53,12 @@ function run() {
     if (node.version) reqContent += `- 版本: ${node.version}\n`;
     reqContent += `\n<!-- ASA-FIELD: acceptanceCriteria -->\n`;
     if (Array.isArray(node.acceptanceCriteria)) {
-      node.acceptanceCriteria.forEach(c => { reqContent += `- ${c}\n`; });
+      node.acceptanceCriteria.forEach(c => {
+        // 多行 criterion 首行用 `- `，续行缩进 2 空格，保证 patch 反向解析无损
+        const lines = String(c).split('\n');
+        reqContent += `- ${lines[0]}\n`;
+        for (let li = 1; li < lines.length; li++) reqContent += `  ${lines[li]}\n`;
+      });
     }
     reqContent += `<!-- ASA-NODE-END -->\n\n---\n\n`;
   }

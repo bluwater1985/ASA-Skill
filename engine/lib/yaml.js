@@ -52,26 +52,44 @@ function stripInlineComment(s) {
   return s.trim();
 }
 
+// 引号感知顶层逗号分拆（用于 flow 数组/映射）
+function splitFlow(inner) {
+  const parts = [];
+  let buf = '', quote = null;
+  for (const ch of inner) {
+    if (quote && ch === quote) { quote = null; buf += ch; }
+    else if (!quote && (ch === '"' || ch === "'")) { quote = ch; buf += ch; }
+    else if (!quote && ch === ',') { parts.push(buf.trim()); buf = ''; }
+    else { buf += ch; }
+  }
+  if (buf.trim()) parts.push(buf.trim());
+  return parts;
+}
+
 function parseScalar(s) {
   // 先剥离引号外的行尾注释，再做引号/数组/对象判定
   s = stripInlineComment(s);
   if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
   if (s === '{}') return {};
+  if (s.startsWith('{') && s.endsWith('}')) {
+    const inner = s.slice(1, -1).trim();
+    if (inner === '') return {};
+    // flow mapping: {k: v, k2: v2}
+    const obj = {};
+    for (const pair of splitFlow(inner)) {
+      const colon = pair.indexOf(':');
+      if (colon === -1) continue;
+      const k = pair.slice(0, colon).trim();
+      const v = pair.slice(colon + 1).trim();
+      obj[k] = parseScalar(v);
+    }
+    return obj;
+  }
   if (s.startsWith('[') && s.endsWith(']')) {
     const inner = s.slice(1, -1).trim();
     if (inner === '') return [];
-    // 引号感知分拆：尊重引号内的逗号，不拆分
-    const items = [];
-    let buf = '', quote = null;
-    for (const ch of inner) {
-      if (quote && ch === quote) { quote = null; buf += ch; }
-      else if (!quote && (ch === '"' || ch === "'")) { quote = ch; buf += ch; }
-      else if (!quote && ch === ',') { items.push(buf.trim()); buf = ''; }
-      else { buf += ch; }
-    }
-    if (buf.trim()) items.push(buf.trim());
-    return items.map(item => parseScalar(item));
+    return splitFlow(inner).map(item => parseScalar(item));
   }
   if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
   if (s === 'true' || s === 'false') return s === 'true';

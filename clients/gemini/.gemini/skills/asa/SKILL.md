@@ -49,7 +49,7 @@ node ~/.gemini/skills/asa/scripts/asa-init.js tier2 --force
 
 > **重跑安全**：无论执行多少次初始化：
 > - **`nodes/`**（需求、任务、架构）→ 永远不碰，这是不可丢的数据
-> - **`matrix.yaml`**（摘要索引）→ 可更新，数据从 nodes/ 重建（`node .asa/index.js reconcile`）
+> - **`matrix.yaml`**（摘要索引）→ 可更新，摘要从 nodes/ 重建（edges/meta 需备份）
 > - **`GEMINI.md`**（项目指令）→ 默认语义化合并保留用户规约，`--force` 可备份后重新生成
 > - **`.gemini/settings.json`** → 按 Hook `name` 精准更新，不重复注册
 > - **`index.js` + `hooks/`** → 引擎文件始终更新到最新
@@ -76,7 +76,7 @@ chmod +x .asa/hooks/*.js
 
 #### 创建/更新 matrix.yaml
 
-> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。清空或损坏后运行 `node .asa/index.js reconcile` 即可从 nodes/ 重建。
+> matrix.yaml 是 nodes/ 的摘要索引，数据主体在 nodes/ 中。reconcile 可从 nodes/ 重建 requirements/architecture/tasks 摘要；但 edges 依赖关系与 meta 元数据只存在于 matrix.yaml，损坏后需从备份恢复。
 
 ```yaml
 # .asa/matrix.yaml

@@ -54,7 +54,7 @@ function run(startId) {
   // 仅当存在待传播条目时才建议 propagate
   const pending = source.pendingPropagation || [];
   if (pending.length > 0) {
-    console.log(`\n建议: 运行 asa propagate ${startId} 执行级联更新（有 ${pending.length} 个待传播条目）`);
+    console.log(`\n建议: 运行 node .asa/index.js propagate ${startId} 执行级联更新（有 ${pending.length} 个待传播条目）`);
   } else if (downstream.length > 0) {
     console.log(`\n提示: ${startId} 无待传播条目。如需传播变更，请先添加 pendingPropagation。`);
   }

@@ -115,6 +115,7 @@ function run(startId) {
   console.log(`[ASA] 传播 ${startId} 的变更...`);
   let applied = 0;
   let failed = 0;
+  let pendingMutated = false; // 源节点 pendingPropagation 是否被改动（清除/标 partial）
 
   const pending = source.pendingPropagation || [];
   if (pending.length === 0) {
@@ -147,27 +148,32 @@ function run(startId) {
 
     if (remaining.length === 0) {
       clearPendingPropagation(source, entry.changeVersion, entry);
+      pendingMutated = true;
       console.log(`  ✓ 条目 v${entry.changeVersion} 全部完成，已清除`);
     } else {
       entry.status = 'partial';
       entry.affectedNodes = remaining;
+      pendingMutated = true;
       console.log(`  ⚠️ 条目 v${entry.changeVersion} 有 ${remaining.length} 个动作未完成，已标记 partial`);
     }
   }
 
-  // 有实际应用的动作时：源节点递增版本 + 记录 changelog（即使部分失败也要记录本次传播）
+  // 源节点版本/changelog/pending 有改动时都必须落盘
+  const srcType = (startId || '').split('-')[0];
+  let sourceModified = false; // 是否真正置为 modified
+
   if (applied > 0) {
     const oldVersion = source.version || 1;
     source.version = oldVersion + 1;
     if (!source.changeLog) source.changeLog = [];
 
     // 仅 REQ 源节点自动置 modified（且需状态机允许），否则保留原状态
-    const srcType = (startId || '').split('-')[0];
     const wasModified = source.status === 'modified';
     if (srcType === 'REQ' && !wasModified) {
       const trans = validateTransition(startId, source.status || 'proposed', 'modified');
       if (trans.valid) {
         source.status = 'modified';
+        sourceModified = true;
         source.changeLog.push({
           date: new Date().toISOString().split('T')[0],
           type: 'modified',
@@ -184,15 +190,20 @@ function run(startId) {
       summary: `传播完成: 应用了 ${applied} 个动作${failed > 0 ? `，${failed} 个失败待处理` : ''}`,
       by: 'system',
     });
-    writeNode(source, startId);
-
-    const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
-    console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
+    console.log(`  → ${startId}: v${oldVersion} → v${source.version}${sourceModified ? `, status: modified` : `, status 不变`}`);
   }
 
+  // pending 被清除/标 partial，或版本已递增 → 落盘源节点
+  if (pendingMutated || applied > 0) {
+    writeNode(source, startId);
+  }
+
+  // 无实际应用动作但 pending 已处理（全部幂等跳过）→ 仅落盘，无需同步摘要
   if (applied === 0) {
     if (failed > 0) {
       console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
+    } else if (pendingMutated) {
+      console.log(`  (全部动作幂等命中，已清除条目)`);
     } else {
       console.log(`  (无实际变更，源节点状态不变)`);
     }

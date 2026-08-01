@@ -26,8 +26,8 @@ if (isReInit) {
   console.log(`🚀 ASA v3 ${tier} 初始化\n`);
 }
 
-// 创建目录结构
-['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/hooks'].forEach(d =>
+// 创建目录结构（knowledge/ 供 tier3 知识管理使用）
+['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/hooks', '.asa/knowledge'].forEach(d =>
   fs.mkdirSync(d, { recursive: true })
 );
 

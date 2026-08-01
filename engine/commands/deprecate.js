@@ -106,6 +106,14 @@ function run(id) {
   } catch (e) {
     console.log(`  ⚠️ reconcile 跳过: ${e.message}`);
   }
+
+  // 重编译 docs，避免文档与节点状态漂移
+  try {
+    const { run: compile } = require('./compile.js');
+    compile();
+  } catch (e) {
+    console.log(`  ⚠️ compile 跳过: ${e.message}`);
+  }
 }
 
 module.exports = { run };
