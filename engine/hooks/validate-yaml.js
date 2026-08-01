@@ -44,11 +44,16 @@ if (process.argv[2] && !process.argv[2].startsWith('-') && !process.argv[2].star
         || payload?.toolInput?.file_path
         || payload?.tool_input?.file_path
         || payload?.hook_input?.file_path
+        || payload?.hook_event?.tool_input?.file_path
         || payload?.file_path
         || '';
+      if (!filePath) {
+        console.log(JSON.stringify({ decision: 'allow', systemMessage: '[ASA 放行] 未能识别文件路径，放行' }));
+        process.exit(0);
+      }
       validateAndExit(filePath, 'gemini');
     } catch (e) {
-      console.log(JSON.stringify({ decision: 'allow' }));
+      console.log(JSON.stringify({ decision: 'allow', systemMessage: '[ASA 放行] hook 解析失败，放行' }));
       process.exit(0);
     }
   });
@@ -59,6 +64,9 @@ if (process.argv[2] && !process.argv[2].startsWith('-') && !process.argv[2].star
 }
 
 function validateAndExit(target, mode) {
+  // 归一化反斜杠，兼容 Windows 路径
+  if (target) target = target.replace(/\\/g, '/');
+
   if (!target || !target.includes('.asa/') || (!target.endsWith('.yaml') && !target.endsWith('.yml'))) {
     allow(mode);
     return;

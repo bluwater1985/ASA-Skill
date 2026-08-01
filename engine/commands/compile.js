@@ -25,6 +25,14 @@ function run() {
     reqContent += `<!-- ASA-NODE-END -->\n\n---\n\n`;
   }
 
+  // 文档版本锚点：反映最新编译的节点版本
+  let maxVersion = 1;
+  for (const [, node] of Object.entries(nodes)) {
+    if (node.__category === 'requirements' && (node.version || 1) > maxVersion) maxVersion = node.version;
+  }
+  reqContent += `<!-- ASA-VERSION: ${maxVersion} -->\n`;
+  reqContent += `<!-- ASA-COMPILED: ${new Date().toISOString().split('T')[0]} -->\n`;
+
   fs.writeFileSync(path.join(DOCS_DIR, '01-requirements.md'), reqContent.trim(), 'utf-8');
   console.log('[ASA] Docs 编译完成。');
 

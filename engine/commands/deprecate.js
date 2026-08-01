@@ -20,22 +20,29 @@ function run(id) {
     process.exit(1);
   }
 
-  // 校验 deprecated 转换
+  // 按节点类型分派终态：REQ→deprecated, ARCH→superseded, TASK→cancelled
+  const type = (id || '').split('-')[0];
+  const terminalState = { REQ: 'deprecated', ARCH: 'superseded', TASK: 'cancelled' }[type];
+  if (!terminalState) {
+    console.error(`[ASA] ❌ 未知节点类型: ${id}`);
+    process.exit(1);
+  }
+
   const currentStatus = node.status || 'pending';
-  const trans = validateTransition(id, currentStatus, 'deprecated');
+  const trans = validateTransition(id, currentStatus, terminalState);
   if (!trans.valid) {
     console.error(`[ASA] ❌ ${trans.error}`);
     process.exit(1);
   }
 
-  // 标记目标节点为 deprecated
-  node.status = 'deprecated';
-  appendChangeLog(node, 'deprecated', `节点已废弃`);
+  // 标记目标节点为终态
+  node.status = terminalState;
+  appendChangeLog(node, terminalState, `节点已废弃 (${terminalState})`);
   const cat = node.__category;
   delete node.__category;
   atomicWriteYaml(path.join(process.cwd(), `.asa/nodes/${cat}/${id}.yaml`), node);
   node.__category = cat;
-  console.log(`[ASA] ${id} → deprecated`);
+  console.log(`[ASA] ${id} → ${terminalState}`);
 
   // 正向 BFS 找下游 TASK，自动 cancelled
   const edges = matrix.edges || [];

@@ -21,7 +21,8 @@ function run() {
   let hasChanges = false;
 
   for (const file of mdFiles) {
-    const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8');
+    // 归一化换行符，避免 CRLF（Windows）导致字段正则 \n 匹配失败
+    const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8').replace(/\r\n/g, '\n');
     for (const [id, node] of Object.entries(nodes)) {
       if (node.__category !== 'requirements') continue;
       let criteria = null;
@@ -67,8 +68,11 @@ function run() {
     const { run: compile } = require('./compile.js');
     compile();
   } else {
-    matrix.meta.docsActualDigest = matrix.meta.docsExpectedDigest;
-    saveMatrix(matrix);
+    // 无可反向同步的变更：docs 与节点不一致（如人类只改了优先级行）。
+    // 以节点为准重建 docs，避免 digest 假一致导致 validate 永久失败。
+    console.log('[ASA] 无可反向同步的字段变更，以节点为准重建 docs...');
+    const { run: compile } = require('./compile.js');
+    compile();
   }
 }
 

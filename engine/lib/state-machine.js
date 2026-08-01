@@ -14,8 +14,8 @@ const TRANSITIONS = {
     deprecated:   [],            // 吸收态
   },
   ARCH: {
-    draft:        ['reviewed'],
-    reviewed:     ['approved', 'draft'],
+    draft:        ['reviewed', 'superseded'],
+    reviewed:     ['approved', 'draft', 'superseded'],
     approved:     ['superseded', 'draft'],
     superseded:   [],            // 吸收态
   },

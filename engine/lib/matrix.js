@@ -37,14 +37,25 @@ function calculateDocsDigest() {
 function loadAllNodes() {
   const nodes = {};
   const categories = ['requirements', 'architecture', 'tasks'];
+  const errors = [];
   for (const cat of categories) {
     const dir = path.join(process.cwd(), `.asa/nodes/${cat}`);
     if (!fs.existsSync(dir)) continue;
-    fs.readdirSync(dir).filter(f => f.endsWith('.yaml')).forEach(file => {
+    for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
       const id = path.basename(file, '.yaml');
-      nodes[id] = parseAsaYaml(fs.readFileSync(path.join(dir, file), 'utf-8'));
-      nodes[id].__category = cat;
-    });
+      try {
+        nodes[id] = parseAsaYaml(fs.readFileSync(path.join(dir, file), 'utf-8'));
+        nodes[id].__category = cat;
+      } catch (e) {
+        errors.push(`${cat}/${file}: ${e.message}`);
+      }
+    }
+  }
+  if (errors.length > 0) {
+    console.error(`[ASA] ❌ ${errors.length} 个节点文件解析失败：`);
+    errors.slice(0, 5).forEach(err => console.error(`  - ${err}`));
+    console.error('  请用 validate-yaml hook 定位问题，或修复这些文件后重试。');
+    process.exit(1);
   }
   return nodes;
 }

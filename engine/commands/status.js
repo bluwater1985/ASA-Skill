@@ -17,7 +17,10 @@ function run(id, newStatus) {
     process.exit(1);
   }
 
-  const oldStatus = node.status || 'pending';
+  // 缺失 status 时按类型回退初始态：REQ→proposed, ARCH→draft, TASK→pending
+  const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
+  const type = (id || '').split('-')[0];
+  const oldStatus = node.status || INITIAL[type] || 'pending';
   const result = validateTransition(id, oldStatus, newStatus);
   if (!result.valid) {
     console.error(`[ASA] ❌ ${result.error}`);

@@ -54,13 +54,26 @@ function getNextId(nodesDir) {
   return max + 1;
 }
 
-function runNode(prefix, title) {
+function runNode(prefix, args) {
   const prefixMap = { 'req': 'REQ', 'arch': 'ARCH', 'task': 'TASK' };
   const p = prefixMap[prefix];
   if (!p) {
     console.error(`[ASA] ❌ 未知类型: ${prefix}，请使用 req/arch/task`);
     process.exit(1);
   }
+
+  // 解析 --priority flag（仅 REQ 有效）
+  let priority = null;
+  const argList = Array.isArray(args) ? args : [args];
+  const titleParts = [];
+  for (let i = 0; i < argList.length; i++) {
+    if (argList[i] === '--priority' && i + 1 < argList.length) {
+      priority = argList[++i];
+    } else {
+      titleParts.push(argList[i]);
+    }
+  }
+  const title = titleParts.join(' ');
 
   const cfg = TEMPLATES[p];
   const dir = path.join(process.cwd(), `.asa/nodes/${cfg.dir}`);
@@ -70,6 +83,7 @@ function runNode(prefix, title) {
   const id = `${p}-${String(nextNum).padStart(3, '0')}`;
   const node = { id, ...JSON.parse(JSON.stringify(cfg.template)) };
   if (title) node.title = title;
+  if (priority && p === 'REQ') node.priority = priority;
 
   atomicWriteYaml(path.join(dir, `${id}.yaml`), node);
 

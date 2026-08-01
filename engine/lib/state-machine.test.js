@@ -48,6 +48,14 @@ describe('ARCH state machine', () => {
   it('allows approved → draft (reopen)', () => {
     assert.equal(validateTransition('ARCH-001', 'approved', 'draft').valid, true);
   });
+
+  it('allows draft → superseded (deprecate)', () => {
+    assert.equal(validateTransition('ARCH-001', 'draft', 'superseded').valid, true);
+  });
+
+  it('allows reviewed → superseded (deprecate)', () => {
+    assert.equal(validateTransition('ARCH-001', 'reviewed', 'superseded').valid, true);
+  });
 });
 
 describe('TASK state machine', () => {

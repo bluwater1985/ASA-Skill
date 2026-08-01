@@ -30,14 +30,14 @@ switch (command) {
   case 'edge':      edge(args); break;
   // Phase 3: 传播链
   case 'propagate':   propagate(args[0]); break;
-  case 'change-req':
-  case 'change-arch':
-  case 'change-task': change(args[0]); break;
+  case 'change-req':  change('change-req', args[0]); break;
+  case 'change-arch': change('change-arch', args[0]); break;
+  case 'change-task': change('change-task', args[0]); break;
   case 'deprecate':   deprecate(args[0]); break;
   // Phase 4-6: 增删改查 + 工作流
-  case 'add-req':     addNode('req', args.join(' ')); break;
-  case 'add-arch':    addNode('arch', args.join(' ')); break;
-  case 'add-task':    addNode('task', args.join(' ')); break;
+  case 'add-req':     addNode('req', args); break;
+  case 'add-arch':    addNode('arch', args); break;
+  case 'add-task':    addNode('task', args); break;
   case 'journal':     journal(); break;
   case 'history':     history(args[0]); break;
   case 'set':         setMeta(args[0], args[1]); break;
