@@ -1,6 +1,6 @@
 ---
 name: asa
-description: AI Software Architect（ASA）—— 在项目中初始化 ASA 工程管理流程。支持 Tier 1（探索验证）、Tier 2（离线防御）、Tier 3（强契约）三级渐进式启用。用户说"初始化 ASA"时触发，自动搭建 .asa/ 引擎目录、生成 GEMINI.md 项目指令、配置 BeforeTool/AfterTool hooks 和 pre-commit。
+description: AI Software Architect（ASA）—— 在项目中初始化 ASA 工程管理流程。支持 Tier 1（探索验证）、Tier 2（离线防御）、Tier 3（强契约）三级渐进式启用。用户输入 "/asa init"、"/asa" 或说"初始化 ASA"时触发，自动搭建 .asa/ 引擎目录、生成 GEMINI.md 项目指令、配置 BeforeTool/AfterTool hooks 和 pre-commit。
 ---
 
 # ASA — AI Software Architect 初始化
@@ -9,7 +9,18 @@ description: AI Software Architect（ASA）—— 在项目中初始化 ASA 工�
 
 ## 用法
 
-在当前项目目录中，告诉 AI：
+支持两种触发方式（与 Claude Code 保持一致）：
+
+### 方式一：斜杠命令（推荐，与 Claude Code 相同）
+
+```
+/asa init            ← 初始化（会问选哪个 Tier）
+/asa init tier1      ← 直接指定 Tier 1
+/asa init tier2      ← 直接指定 Tier 2
+/asa init tier3      ← 直接指定 Tier 3
+```
+
+### 方式二：自然语言
 
 > 初始化 ASA
 > 或者：初始化 ASA Tier 2
