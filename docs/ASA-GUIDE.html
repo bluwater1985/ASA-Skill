@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASA — AI Software Architect 完整指南</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-soft: #1e293b;
+    --bg-card: #1a2332;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #a78bfa;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --code-bg: #0b1220;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  }
+  .layout { display: flex; min-height: 100vh; }
+  /* ── 侧边导航 ── */
+  nav {
+    width: 260px; flex-shrink: 0; background: var(--bg-soft);
+    border-right: 1px solid var(--border); position: sticky; top: 0; height: 100vh;
+    overflow-y: auto; padding: 24px 16px;
+  }
+  nav h1 { font-size: 18px; color: var(--accent); margin-bottom: 4px; }
+  nav .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+  nav a {
+    display: block; color: var(--text-dim); text-decoration: none; padding: 7px 12px;
+    border-radius: 6px; font-size: 14px; margin: 2px 0;
+  }
+  nav a:hover { background: var(--bg-card); color: var(--text); }
+  nav a.section { color: var(--accent); font-weight: 600; margin-top: 14px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
+  nav a.active { background: var(--accent); color: #0f172a; font-weight: 600; }
+  /* ── 主内容 ── */
+  main { flex: 1; max-width: 900px; margin: 0 auto; padding: 40px 32px 80px; }
+  section { margin-bottom: 56px; scroll-margin-top: 20px; }
+  h2 { font-size: 28px; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-bottom: 24px; }
+  h3 { font-size: 20px; color: var(--accent-2); margin: 28px 0 14px; }
+  h4 { font-size: 16px; color: var(--text); margin: 20px 0 10px; }
+  p { margin-bottom: 14px; color: var(--text); }
+  .dim { color: var(--text-dim); }
+  /* 卡片 */
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin: 16px 0; }
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .stat { text-align: center; padding: 18px; }
+  .stat .num { font-size: 30px; font-weight: 700; color: var(--accent); }
+  .stat .label { font-size: 13px; color: var(--text-dim); }
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th { background: var(--bg-soft); color: var(--accent); text-align: left; padding: 10px 12px; border: 1px solid var(--border); }
+  td { padding: 9px 12px; border: 1px solid var(--border); color: var(--text); }
+  tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+  /* 代码 */
+  code { background: var(--code-bg); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: "SF Mono", "JetBrains Mono", Consolas, monospace; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; overflow-x: auto; margin: 16px 0; font-size: 13px; line-height: 1.6;
+    font-family: "SF Mono", "JetBrains Mono", Consolas, monospace; color: var(--text);
+  }
+  pre .c { color: var(--text-dim); }
+  pre .k { color: var(--accent-2); }
+  pre .s { color: var(--ok); }
+  /* 流程图（CSS 盒子） */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 24px 0; }
+  .flow-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+  .fnode {
+    background: var(--bg-card); border: 2px solid var(--accent); border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; text-align: center; min-width: 110px;
+  }
+  .fnode.req { border-color: var(--accent); }
+  .fnode.arch { border-color: var(--accent-2); }
+  .fnode.task { border-color: var(--ok); }
+  .fnode.act { border-color: var(--warn); background: rgba(251,191,36,.08); }
+  .fnode.gate { border-color: var(--err); background: rgba(248,113,113,.08); }
+  .farrow { color: var(--text-dim); font-size: 18px; padding: 0 4px; }
+  .farrow.vert { font-size: 14px; }
+  /* 标记 */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin: 0 4px; }
+  .badge.ok { background: rgba(74,222,128,.15); color: var(--ok); }
+  .badge.warn { background: rgba(251,191,36,.15); color: var(--warn); }
+  .badge.err { background: rgba(248,113,113,.15); color: var(--err); }
+  .badge.info { background: rgba(56,189,248,.15); color: var(--accent); }
+  .badge.purple { background: rgba(167,139,250,.15); color: var(--accent-2); }
+  /* 提示框 */
+  .note { border-left: 4px solid var(--accent); background: var(--bg-card); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin: 16px 0; font-size: 14px; }
+  .note.warn { border-color: var(--warn); }
+  .note.err { border-color: var(--err); }
+  .note.ok { border-color: var(--ok); }
+  /* 目录树 */
+  .tree { font-family: "SF Mono", Consolas, monospace; font-size: 13px; color: var(--text-dim); background: var(--code-bg); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); overflow-x: auto; line-height: 1.7; }
+  .tree b { color: var(--text); font-weight: 600; }
+  .tree .cmt { color: var(--text-dim); }
+  /* hero */
+  .hero { text-align: center; padding: 30px 0 40px; }
+  .hero h1 { font-size: 42px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+  .hero p { font-size: 18px; color: var(--text-dim); max-width: 640px; margin: 0 auto; }
+  .toc { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin: 24px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc li { margin: 6px 0; font-size: 14px; }
+  /* 移动端 */
+  @media (max-width: 800px) {
+    .layout { flex-direction: column; }
+    nav { width: 100%; height: auto; position: static; padding: 16px; }
+    nav h1, nav .sub { text-align: center; }
+    main { padding: 24px 16px 60px; }
+    .hero h1 { font-size: 30px; }
+  }
+  /* 打印 */
+  @media print {
+    nav { display: none; }
+    body { background: #fff; color: #111; }
+    .card, pre, .tree { background: #f5f5f5; border-color: #ddd; }
+    table th { background: #eee; }
+  }
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- 侧边导航 -->
+  <nav>
+    <h1>ASA 指南</h1>
+    <div class="sub">AI Software Architect v3</div>
+    <a class="section" href="#overview">概览</a>
+    <a href="#what">这是什么</a>
+    <a href="#stack">技术栈</a>
+    <a class="section" href="#structure">项目结构</a>
+    <a href="#tree">目录树</a>
+    <a href="#modules">模块职责</a>
+    <a class="section" href="#architecture">实现方式</a>
+    <a href="#layers">三层架构</a>
+    <a href="#data-model">数据模型</a>
+    <a href="#parser">YAML 解析器</a>
+    <a href="#state-machine">状态机</a>
+    <a href="#digest">一致性保障</a>
+    <a class="section" href="#features">功能清单</a>
+    <a href="#commands">17 命令</a>
+    <a href="#capabilities">能力矩阵</a>
+    <a class="section" href="#quickstart">快速上手</a>
+    <a href="#install">安装</a>
+    <a href="#first-project">第一个项目</a>
+    <a class="section" href="#workflow">完整工作流</a>
+    <a href="#lifecycle">节点生命周期</a>
+    <a href="#propagation">变更传播链</a>
+    <a href="#ci">CI 门禁</a>
+    <a class="section" href="#principles">实现原理</a>
+    <a href="#data-flow">数据流</a>
+    <a href="#hook-dual">Hook 双协议</a>
+    <a href="#recovery">中断与恢复</a>
+    <a class="section" href="#faq">FAQ 与排障</a>
+    <a href="#troubleshoot">常见问题</a>
+    <a href="#appendix">附录</a>
+  </nav>
+
+  <!-- 主内容 -->
+  <main>
+    <!-- 概览 -->
+    <section id="overview">
+      <div class="hero">
+        <h1>ASA — AI Software Architect</h1>
+        <p>把 AI 从「代码生成器」变成「项目负责人」。Spec-Driven + Document-Driven + AI-Driven Development。</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card stat"><div class="num">17</div><div class="label">CLI 命令</div></div>
+        <div class="card stat"><div class="num">127</div><div class="label">自动化测试</div></div>
+        <div class="card stat"><div class="num">87.5%</div><div class="label">测试覆盖率</div></div>
+      </div>
+
+      <h3 id="what">这是什么</h3>
+      <p>ASA 是一个工程管理流程引擎，同时支持 <b>Claude Code</b> 和 <b>Gemini CLI</b> 两个 AI 客户端。它把需求、架构、任务以结构化 YAML 节点管理，驱动 AI 按「需求澄清 → 影响分析 → 变更传播 → 编译 → 验证」的闭环工作，而不是让 AI 直接拍脑袋写代码。</p>
+      <div class="card">
+        <p><b>核心主张：</b></p>
+        <ul>
+          <li><b>需求驱动</b> — 先聊清楚需求，再写代码</li>
+          <li><b>全链路变更管理</b> — 改一个需求，自动分析影响并传播到下游</li>
+          <li><b>状态机约束</b> — 节点生命周期合法演进，非法跳转拒绝</li>
+          <li><b>CI 门禁</b> — validate 兜底，防止 docs/节点漂移与未完成传播</li>
+        </ul>
+      </div>
+
+      <h3 id="stack">技术栈</h3>
+      <table>
+        <tr><th>维度</th><th>选型</th><th>说明</th></tr>
+        <tr><td>语言</td><td>Node.js (18+)</td><td>纯 JavaScript，零编译</td></tr>
+        <tr><td>依赖</td><td>零外部依赖</td><td>只用 fs / path / crypto / os</td></tr>
+        <tr><td>测试</td><td>node:test</td><td>Node 内置测试框架</td></tr>
+        <tr><td>YAML</td><td>自制解析器</td><td>紧凑实现，支持 flow/嵌套/转义</td></tr>
+        <tr><td>客户端</td><td>Claude Code + Gemini CLI</td><td>双协议 hooks（argv / stdin JSON）</td></tr>
+      </table>
+    </section>
+
+    <!-- 项目结构 -->
+    <section id="structure">
+      <h2>项目结构</h2>
+      <h3 id="tree">目录树</h3>
+      <div class="tree">
+<pre>asa/
+├── <b>install.js</b>                  <span class="cmt"># 跨平台安装脚本</span>
+├── <b>engine/</b>                     <span class="cmt"># 核心引擎（零外部依赖）</span>
+│   ├── <b>index.js</b>               <span class="cmt"># CLI 路由（17 命令）</span>
+│   ├── <b>commands/</b>              <span class="cmt"># 命令实现（每命令一文件）</span>
+│   │   ├── compile.js  patch.js  traverse.js  reconcile.js  validate.js
+│   │   ├── status.js  impact.js  edge.js  propagate.js  change.js  deprecate.js
+│   │   ├── add.js  journal.js  history.js  set.js
+│   │   └── commands.test.js         <span class="cmt"># 命令集成测试</span>
+│   ├── <b>lib/</b>                    <span class="cmt"># 库模块</span>
+│   │   ├── yaml.js                  <span class="cmt"># YAML 解析/序列化</span>
+│   │   ├── matrix.js                <span class="cmt"># matrix/nodes 读写 + digest</span>
+│   │   ├── graph.js                 <span class="cmt"># 图遍历 + 循环检测</span>
+│   │   ├── state-machine.js         <span class="cmt"># 三方状态机</span>
+│   │   ├── changelog.js             <span class="cmt"># 变更日志 + pendingPropagation</span>
+│   │   └── *.test.js                <span class="cmt"># 单元测试</span>
+│   └── <b>hooks/</b>                  <span class="cmt"># 双协议 hook 脚本</span>
+│       ├── check-work-order.js      <span class="cmt"># PreToolUse 状态拦截</span>
+│       ├── validate-yaml.js         <span class="cmt"># PostToolUse YAML 校验</span>
+│       └── hooks.test.js
+├── <b>templates/</b>                 <span class="cmt"># CLAUDE/GEMINI 项目指令模板（tier1~3）</span>
+├── <b>skeleton/</b>                  <span class="cmt"># 空矩阵骨架</span>
+├── <b>clients/</b>                   <span class="cmt"># 客户端 Skill + 初始化脚本</span>
+└── <b>docs/</b>                      <span class="cmt"># 文档</span></pre>
+      </div>
+
+      <h3 id="modules">模块职责</h3>
+      <div class="grid grid-3">
+        <div class="card"><h4>commands/（命令层）</h4><p class="dim">加载数据 → 处理 → 写回 → 输出。每个命令独立文件，行为可测。</p></div>
+        <div class="card"><h4>lib/（库层）</h4><p class="dim">无状态工具：YAML 解析、matrix 读写、图遍历、状态机校验、changelog。</p></div>
+        <div class="card"><h4>hooks/（防御层）</h4><p class="dim">独立脚本，Claude(argv) 与 Gemini(stdin) 双协议，拦截/放行输出明确标记。</p></div>
+      </div>
+    </section>
+
+    <!-- 实现方式 -->
+    <section id="architecture">
+      <h2>实现方式</h2>
+      <h3 id="layers">三层架构</h3>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="fnode act">CLI 路由<br><small>index.js</small></div>
+          <div class="farrow">↓</div>
+          <div class="fnode">commands/*.js<br><small>命令实现</small></div>
+          <div class="farrow">↓</div>
+          <div class="fnode arch">lib/*.js<br><small>库模块</small></div>
+        </div>
+        <div class="farrow vert">↓ 写盘 / 读盘</div>
+        <div class="fnode task">.asa/ 数据<br><small>matrix.yaml + nodes/*.yaml + docs/</small></div>
+      </div>
+      <div class="note">零外部依赖、路径调用时计算（支持多项目/测试多沙箱）、库层 throw + CLI 顶层友好捕获。</div>
+
+      <h3 id="data-model">数据模型</h3>
+      <p>ASA 采用「摘要索引 + 数据主体」三层结构：</p>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="fnode req">需求节点<br><small>nodes/requirements/*.yaml</small></div>
+          <div class="fnode arch">架构节点<br><small>nodes/architecture/*.yaml</small></div>
+          <div class="fnode task">任务节点<br><small>nodes/tasks/*.yaml</small></div>
+        </div>
+        <div class="farrow vert">↓ 重建摘要</div>
+        <div class="fnode gate">matrix.yaml<br><small>摘要索引 + edges + digests</small></div>
+        <div class="farrow vert">↓ 编译</div>
+        <div class="fnode act">docs/01-requirements.md<br><small>人类可读文档</small></div>
+      </div>
+      <table>
+        <tr><th>层</th><th>位置</th><th>内容</th><th>可重建?</th></tr>
+        <tr><td>数据主体</td><td>nodes/</td><td>节点完整定义（title/status/acceptanceCriteria/changeLog/pendingPropagation）</td><td>❌ 不可（备份）</td></tr>
+        <tr><td>摘要索引</td><td>matrix.yaml</td><td>requirements/architecture/tasks 摘要 + edges + meta + digests</td><td>✅ reconcile 重建（edges 需备份）</td></tr>
+        <tr><td>编译产物</td><td>docs/</td><td>需求文档（保留用户手写头尾/节点间笔记）</td><td>✅ compile 重建</td></tr>
+      </table>
+
+      <h3 id="parser">YAML 解析器设计</h3>
+      <p>零外部依赖意味着要自制 YAML 解析器。它支持：</p>
+      <div class="grid grid-3">
+        <div class="card"><h4>嵌套结构</h4><p class="dim">标量 / 对象 / 数组 / 多键对象数组 / 深层嵌套</p></div>
+        <div class="card"><h4>flow 集合</h4><p class="dim">`[...]` / `{...}` 含嵌套与引号内逗号</p></div>
+        <div class="card"><h4>安全转义</h4><p class="dim">反斜杠、引号、换行、Tab 正确 round-trip</p></div>
+        <div class="card"><h4>内联注释</h4><p class="dim">仅引号外、`#` 前有空白才算注释</p></div>
+        <div class="card"><h4>显式报错</h4><p class="dim">Tab 缩进、块标量、未闭合引号/括号</p></div>
+        <div class="card"><h4>引号保护</h4><p class="dim">冒号/首尾空白/flow 形态字符串自动加引号</p></div>
+      </div>
+
+      <h3 id="state-machine">节点状态机</h3>
+      <div class="grid grid-3">
+        <div class="card">
+          <h4>REQ 需求</h4>
+          <pre><span class="k">proposed</span> → <span class="k">approved</span> → <span class="k">implemented</span> → <span class="k">deprecated</span>
+     ↓                 ↓
+<span class="k">rejected</span>         <span class="k">modified</span>
+  ↺ 可重新提交
+<span class="k">deprecated</span> 吸收态</pre>
+        </div>
+        <div class="card">
+          <h4>ARCH 架构</h4>
+          <pre><span class="k">draft</span> → <span class="k">reviewed</span> → <span class="k">approved</span> → <span class="k">superseded</span>
+  ↺                    ↓
+<span class="k">draft</span> 修订重开    <span class="k">superseded</span> 吸收态</pre>
+        </div>
+        <div class="card">
+          <h4>TASK 任务</h4>
+          <pre><span class="k">pending</span> → <span class="k">in_progress</span> → <span class="k">completed</span> → <span class="k">verified</span>
+   ↑          ↓
+<span class="k">cancelled</span>    <span class="k">blocked</span> → <span class="k">in_progress</span>
+  ↺ 误取消可恢复</pre>
+        </div>
+      </div>
+      <div class="note">非法跳转直接拒绝（如 pending → verified）。状态变更自动记录到 changeLog 并递增版本。</div>
+
+      <h3 id="digest">一致性保障</h3>
+      <table>
+        <tr><th>机制</th><th>作用</th><th>触发</th></tr>
+        <tr><td>docs digest</td><td>docs/ 内容 SHA-256（含文件名），检测篡改/未编译</td><td>validate / patch</td></tr>
+        <tr><td>nodes digest</td><td>nodes/ 内容 SHA-256（CRLF 归一化），检测节点↔docs 漂移</td><td>validate</td></tr>
+        <tr><td>reconcile</td><td>从 nodes 重建摘要，修复不一致；matrix 缺失自举</td><td>启动序列 / 手动</td></tr>
+        <tr><td>atomic write</td><td>先写 `.tmp` 再 rename，防半写损坏</td><td>所有写盘</td></tr>
+      </table>
+    </section>
+
+    <!-- 功能清单 -->
+    <section id="features">
+      <h2>功能清单</h2>
+      <h3 id="commands">17 个 CLI 命令</h3>
+      <table>
+        <tr><th>类别</th><th>命令</th><th>说明</th></tr>
+        <tr><td rowspan="5">基础</td><td><code>compile</code></td><td>节点 → docs 编译（保留用户手写内容）</td></tr>
+        <tr><td><code>patch</code></td><td>docs → 节点反向同步</td></tr>
+        <tr><td><code>reconcile</code></td><td>事务对账 + 状态摘要 + 迁移 + 自举</td></tr>
+        <tr><td><code>validate</code></td><td>健康检查 + CI 门禁</td></tr>
+        <tr><td><code>traverse &lt;id&gt;</code></td><td>图 BFS 遍历</td></tr>
+        <tr><td rowspan="4">状态机</td><td><code>status &lt;id&gt; &lt;st&gt;</code></td><td>状态推进（非法跳转拒绝）</td></tr>
+        <tr><td><code>deprecate &lt;id&gt;</code></td><td>废弃节点 + 级联下游 TASK</td></tr>
+        <tr><td><code>set phase &lt;p&gt;</code></td><td>切换项目阶段</td></tr>
+        <tr><td><code>set active-task &lt;id&gt;</code></td><td>激活/清除活跃任务</td></tr>
+        <tr><td rowspan="3">影响传播</td><td><code>impact &lt;id&gt;</code></td><td>影响分析报告</td></tr>
+        <tr><td><code>propagate &lt;id&gt;</code></td><td>幂等执行 pendingPropagation</td></tr>
+        <tr><td><code>change-req/arch/task</code></td><td>变更入口（备份 + 引导）</td></tr>
+        <tr><td rowspan="3">节点管理</td><td><code>add-req/arch/task</code></td><td>新增节点（自动分配 ID）</td></tr>
+        <tr><td><code>journal</code></td><td>全项目变更历史</td></tr>
+        <tr><td><code>history &lt;id&gt;</code></td><td>单节点变更沿革</td></tr>
+        <tr><td rowspan="2">依赖边</td><td><code>edge add &lt;f&gt; &lt;t&gt; --type</code></td><td>新增依赖边（循环检测）</td></tr>
+        <tr><td><code>edge rm &lt;f&gt; &lt;t&gt;</code></td><td>删除依赖边</td></tr>
+      </table>
+
+      <h3 id="capabilities">能力矩阵</h3>
+      <div class="grid grid-3">
+        <div class="card"><h4>需求管理</h4><p class="dim">新增、优先级、接受条件、状态演进、废弃</p></div>
+        <div class="card"><h4>影响分析</h4><p class="dim">BFS 上下游、影响报告、级联建议</p></div>
+        <div class="card"><h4>变更传播</h4><p class="dim">结构化动作、幂等执行、失败保留 partial</p></div>
+        <div class="card"><h4>CI 门禁</h4><p class="dim">digest 一致性、节点漂移、未完成传播阻断</p></div>
+        <div class="card"><h4>AI 防御</h4><p class="dim">无活跃任务拦截、YAML 写入校验</p></div>
+        <div class="card"><h4>双客户端</h4><p class="dim">Claude Code + Gemini CLI，统一引擎</p></div>
+      </div>
+    </section>
+
+    <!-- 快速上手 -->
+    <section id="quickstart">
+      <h2>快速上手</h2>
+      <h3 id="install">安装</h3>
+      <pre><span class="c"># Claude Code 用户</span>
+node install.js claude
+
+<span class="c"># Gemini CLI 用户</span>
+node install.js gemini</pre>
+      <div class="note">要求 Node.js 18+。自动部署引擎、模板、Skill；Gemini 用户自动启用 experimental.skills。</div>
+
+      <h3 id="first-project">从零到第一个需求</h3>
+      <pre><span class="c"># 1. 在项目里初始化 ASA（Claude 输入 /asa init，Gemini 说"初始化 ASA"）</span>
+
+<span class="c"># 2. 添加需求、架构、任务</span>
+node .asa/index.js add-req "规则检查引擎" --priority P1
+node .asa/index.js add-arch "规则引擎架构"
+node .asa/index.js add-task "实现原子函数"
+
+<span class="c"># 3. 建立依赖关系</span>
+node .asa/index.js edge add REQ-001 ARCH-001 --type depends
+node .asa/index.js edge add ARCH-001 TASK-001 --type refines
+
+<span class="c"># 4. 推进状态 + 进入实现阶段</span>
+node .asa/index.js status REQ-001 approved
+node .asa/index.js set phase implementation
+node .asa/index.js set active-task TASK-001
+
+<span class="c"># 5. 让 AI 实现代码（hook 保证"做完一个再下一个"）</span>
+
+<span class="c"># 6. 事务闭环</span>
+node .asa/index.js compile
+node .asa/index.js validate   <span class="c"># 应输出 ✅ 健康检查通过</span></pre>
+    </section>
+
+    <!-- 完整工作流 -->
+    <section id="workflow">
+      <h2>完整工作流</h2>
+      <h3 id="lifecycle">节点生命周期</h3>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="fnode req">add-req<br><small>创建 proposed</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode req">status approved</div>
+          <div class="farrow">→</div>
+          <div class="fnode req">status implemented</div>
+          <div class="farrow">→</div>
+          <div class="fnode gate">deprecate</div>
+        </div>
+        <div class="flow-row" style="margin-top:8px">
+          <div class="fnode task">add-task<br><small>创建 pending</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode task">set active-task<br><small>in_progress</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode task">completed</div>
+          <div class="farrow">→</div>
+          <div class="fnode task">verified</div>
+        </div>
+      </div>
+
+      <h3 id="propagation">变更传播链（核心）</h3>
+      <p>当需求变更时，ASA 的传播链让下游节点自动联动：</p>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="fnode act">change-req REQ-001<br><small>备份快照</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode req">AI 编辑节点<br><small>追加 pendingPropagation</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode">impact REQ-001<br><small>看影响范围</small></div>
+        </div>
+        <div class="farrow vert">↓ 用户确认</div>
+        <div class="flow-row">
+          <div class="fnode act">propagate REQ-001<br><small>幂等执行动作</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode arch">ARCH set_status draft<br><small>受影响架构回退</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode task">TASK append outputs<br><small>追加产出</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode gate">validate<br><small>CI 门禁通过</small></div>
+        </div>
+      </div>
+      <div class="note ok">幂等机制：每个动作先检查目标是否已满足，已满足则跳过；失败动作保留为 <code>partial</code>，重跑继续，不丢意图。</div>
+
+      <h3 id="ci">CI 门禁（validate）</h3>
+      <table>
+        <tr><th>检查项</th><th>失败时</th></tr>
+        <tr><td>docs digest 与期望一致</td><td>❌ docs/ 已被篡改或未运行 compile</td></tr>
+        <tr><td>nodes digest 与 matrix 一致</td><td>❌ 节点文件已变更但未重新 compile</td></tr>
+        <tr><td>无未完成传播条目</td><td>❌ 存在未完成的变更传播</td></tr>
+        <tr><td>任务文件存在</td><td>❌ 索引任务指向的文件不存在</td></tr>
+      </table>
+    </section>
+
+    <!-- 实现原理 -->
+    <section id="principles">
+      <h2>实现原理</h2>
+      <h3 id="data-flow">数据流</h3>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="fnode req">写命令<br><small>add/status/edge/propagate/deprecate</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode task">atomic write<br><small>nodes/*.yaml</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode arch">rebuildSummary<br><small>matrix 摘要</small></div>
+        </div>
+        <div class="farrow vert">↓ compile</div>
+        <div class="flow-row">
+          <div class="fnode act">docs digest<br><small>expected = actual</small></div>
+          <div class="farrow">→</div>
+          <div class="fnode gate">validate<br><small>三者一致才算通过</small></div>
+        </div>
+      </div>
+      <p class="dim">写命令同时更新 nodes 与 matrix 摘要，compile 刷新 docs 与 digest。validate 用 docs digest + nodes digest 双校验保证一致性。</p>
+
+      <h3 id="hook-dual">Hook 双协议</h3>
+      <div class="grid grid-2">
+        <div class="card">
+          <h4>Claude Code（argv）</h4>
+          <pre>node .asa/hooks/check-work-order.js "$FILE_PATH"</pre>
+          <p class="dim">hook 通过 <code>process.argv[2]</code> 拿到目标文件路径。若为 <code>$FILE_PATH</code> 未展开（字面量）则回退到 stdin JSON 解析。</p>
+        </div>
+        <div class="card">
+          <h4>Gemini CLI（stdin JSON）</h4>
+          <pre>{"tool_input":{"file_path":"/abs/path"}}</pre>
+          <p class="dim">hook 解析 stdin JSON，从多个候选键提取文件路径。提取不到时 fail-open 放行。</p>
+        </div>
+      </div>
+      <div class="note">拦截/放行输出明确标记：<span class="badge err">[ASA 拦截]</span> 表示 hook 主动拒绝，<span class="badge ok">[ASA 放行]</span> 表示通过——让用户能区分「拦截生效」与「hook 报错」。</div>
+
+      <h3 id="recovery">中断与恢复</h3>
+      <table>
+        <tr><th>场景</th><th>机制</th></tr>
+        <tr><td>propagate 中断</td><td>条目标记 <code>partial</code>，重跑按幂等检查跳过已完成动作，继续未完成</td></tr>
+        <tr><td>失败动作（非法转换/缺字段）</td><td>保留条目不丢弃，返回非零退出码，validate 持续阻塞直到解决</td></tr>
+        <tr><td>matrix 损坏/缺失</td><td>reconcile 用骨架自举重建（edges 需备份）</td></tr>
+        <tr><td>写盘中断</td><td>atomic write（.tmp → rename）防半写</td></tr>
+      </table>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <h2>FAQ 与排障</h2>
+      <h3 id="troubleshoot">常见问题</h3>
+      <div class="card">
+        <h4>Q: validate 报「docs/ 已被篡改」</h4>
+        <p>运行 <code>node .asa/index.js compile</code> 后重新 <code>validate</code>。</p>
+      </div>
+      <div class="card">
+        <h4>Q: validate 报「节点文件已变更但未重新 compile」</h4>
+        <p>节点被直接编辑未走命令。运行 <code>compile</code> 同步 docs 与 nodesDigest。</p>
+      </div>
+      <div class="card">
+        <h4>Q: hook 拦截「没有活跃 Task」</h4>
+        <p>在 implementation/review 阶段需先激活任务：<code>node .asa/index.js set active-task TASK-001</code>。</p>
+      </div>
+      <div class="card">
+        <h4>Q: matrix.yaml 损坏了怎么办</h4>
+        <p>备份后运行 <code>node .asa/index.js reconcile</code> 自举重建（edges 需从备份恢复）。</p>
+      </div>
+      <div class="card">
+        <h4>Q: 节点文件含 Tab 缩进报错</h4>
+        <p>ASA 的 YAML 不允许 Tab 缩进。改用空格，或用 validate-yaml hook 定位。</p>
+      </div>
+      <div class="card">
+        <h4>Q: hook 无输出/不拦截</h4>
+        <p>检查 settings.json 的 hook 配置；路径含空格时需加引号。</p>
+      </div>
+
+      <h3 id="appendix">附录：完整命令速查</h3>
+      <pre><span class="k">基础</span>
+  compile | patch | traverse &lt;id&gt; | reconcile | validate
+<span class="k">状态</span>
+  status &lt;id&gt; &lt;new-status&gt; | deprecate &lt;id&gt;
+  set phase &lt;phase&gt; | set active-task &lt;TASK-ID&gt; | set active-task clear
+<span class="k">影响</span>
+  impact &lt;id&gt; | propagate &lt;id&gt;
+  change-req | change-arch | change-task &lt;id&gt;
+<span class="k">新增</span>
+  add-req &lt;title&gt; [--priority P1] | add-arch &lt;title&gt; | add-task &lt;title&gt;
+<span class="k">查询</span>
+  journal | history &lt;id&gt;
+<span class="k">边</span>
+  edge add &lt;from&gt; &lt;to&gt; --type depends|extends|refines | edge rm &lt;from&gt; &lt;to&gt;</pre>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 简单的滚动高亮导航
+  const links = document.querySelectorAll('nav a');
+  const sections = document.querySelectorAll('main section');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = '#' + s.id;
+    });
+    links.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === current);
+    });
+  });
+</script>
+</body>
+</html>
