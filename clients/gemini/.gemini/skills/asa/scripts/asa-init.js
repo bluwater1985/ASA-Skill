@@ -173,7 +173,8 @@ if (tier !== 'tier1') {
 
 // ── 总结 ──
 if (isReInit) {
-  const updated = engineUpdated + 2; // +2 for settings.json and pre-commit
+  // settings.json + pre-commit 仅在 tier2/3 写入
+  const updated = engineUpdated + (tier !== 'tier1' ? 2 : 0);
   console.log(`\n🔄 重跑完成：${dataSkipped} 个数据文件已保留，${updated} 个引擎/配置文件已更新`);
   console.log('   项目中的需求、任务、架构数据不受影响');
 } else {

@@ -10,6 +10,7 @@ function run(what, value) {
       console.error(`[ASA] ❌ 无效阶段: ${value}，可用: ${valid.join(' | ')}`);
       process.exit(1);
     }
+    matrix.meta = matrix.meta || {};
     matrix.meta.phase = value;
     saveMatrix(matrix);
     console.log(`[ASA] ✅ 阶段已更新: ${value}`);
@@ -17,6 +18,7 @@ function run(what, value) {
   }
 
   if (what === 'active-task') {
+    matrix.meta = matrix.meta || {};
     if (value === 'clear') {
       matrix.meta.activeTask = '(none)';
       saveMatrix(matrix);

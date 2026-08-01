@@ -15,7 +15,10 @@ function executeAction(node, action) {
   switch (type) {
     case 'set_status': {
       if (!value) return 'failed';
-      const old = node.status || 'pending';
+      // 缺失 status 按类型回退初始态（与 status.js 一致）
+      const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
+      const nodeType = (node.id || '').split('-')[0];
+      const old = node.status || INITIAL[nodeType] || 'pending';
       if (old === value) return 'skipped'; // 幂等
       const trans = validateTransition(node.id, old, value);
       if (!trans.valid) {
@@ -84,11 +87,13 @@ function executeAction(node, action) {
   }
 }
 
-function writeNode(node) {
+function writeNode(node, id) {
   const cat = node.__category;
   if (!cat) return;
+  // 用调用方提供的 id（= 文件名/id 键），而非 node.id 内容，避免与文件名不一致时写错路径
+  const fileId = id || node.id;
   delete node.__category;
-  atomicWriteYaml(path.join(process.cwd(), `.asa/nodes/${cat}/${node.id}.yaml`), node);
+  atomicWriteYaml(path.join(process.cwd(), `.asa/nodes/${cat}/${fileId}.yaml`), node);
   node.__category = cat;
 }
 
@@ -130,7 +135,7 @@ function run(startId) {
       }
       const result = executeAction(node, af.action);
       if (result === 'applied') {
-        writeNode(node);
+        writeNode(node, af.id);
         applied++;
       } else if (result === 'failed') {
         failed++;
@@ -156,18 +161,21 @@ function run(startId) {
     source.version = oldVersion + 1;
     if (!source.changeLog) source.changeLog = [];
 
-    // 仅 REQ 源节点自动置 modified（REQ 状态机存在该状态）
-    // ARCH/TASK 源节点不自动改状态，避免写入其状态机不存在的非法状态
+    // 仅 REQ 源节点自动置 modified（且需状态机允许），否则保留原状态
     const srcType = (startId || '').split('-')[0];
-    if (srcType === 'REQ') {
-      source.status = 'modified';
-      source.changeLog.push({
-        date: new Date().toISOString().split('T')[0],
-        type: 'modified',
-        version: source.version,
-        summary: `状态变更: 传播触发`,
-        by: 'system',
-      });
+    const wasModified = source.status === 'modified';
+    if (srcType === 'REQ' && !wasModified) {
+      const trans = validateTransition(startId, source.status || 'proposed', 'modified');
+      if (trans.valid) {
+        source.status = 'modified';
+        source.changeLog.push({
+          date: new Date().toISOString().split('T')[0],
+          type: 'modified',
+          version: source.version,
+          summary: `状态变更: 传播触发`,
+          by: 'system',
+        });
+      }
     }
     source.changeLog.push({
       date: new Date().toISOString().split('T')[0],
@@ -176,25 +184,23 @@ function run(startId) {
       summary: `传播完成: 应用了 ${applied} 个动作${failed > 0 ? `，${failed} 个失败待处理` : ''}`,
       by: 'system',
     });
-    writeNode(source);
+    writeNode(source, startId);
 
     const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
     console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
   }
 
-  if (failed > 0) {
-    console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
-    process.exit(1);
-  }
-
   if (applied === 0) {
-    console.log(`  (无实际变更，源节点状态不变)`);
-    return;
+    if (failed > 0) {
+      console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
+    } else {
+      console.log(`  (无实际变更，源节点状态不变)`);
+    }
+    process.exit(failed > 0 ? 1 : 0);
   }
 
+  // 更新 matrix 摘要索引 + 重编译 docs（在失败退出前执行，保证已应用的状态落盘同步）
   console.log(`  ✓ 重新 compile...`);
-
-  // 更新 matrix 摘要索引（重建），避免状态陈旧
   try {
     const { rebuildSummary, saveMatrix: saveM } = require('../lib/matrix.js');
     const m = loadMatrix();
@@ -207,6 +213,11 @@ function run(startId) {
     compile();
   } catch (e) {
     console.log(`  ⚠️ compile 跳过: ${e.message}`);
+  }
+
+  if (failed > 0) {
+    console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
+    process.exit(1);
   }
 }
 

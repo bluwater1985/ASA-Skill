@@ -52,25 +52,6 @@ function createPendingPropagation(node, changeVersion, affectedNodes) {
 }
 
 /**
- * 标记 pendingPropagation 条目的传播状态
- * @returns {boolean} 是否已完成
- */
-function updatePropagationStatus(node, changeVersion) {
-  if (!node.pendingPropagation) return true;
-
-  const entry = node.pendingPropagation.find(e => e.changeVersion === changeVersion);
-  if (!entry) return true; // 不存在或已清除
-
-  if (entry.status === 'pending') {
-    entry.status = 'partial';
-    return false;
-  }
-
-  // status 为 partial：检查是否所有节点都处理完毕
-  return false;
-}
-
-/**
  * 清除已完成传播的 pendingPropagation 条目。
  * 按条目对象身份清除（而非 changeVersion），避免同版本多个条目时误删 partial 条目。
  */
@@ -96,7 +77,6 @@ function hasPendingPropagation(node) {
 module.exports = {
   appendChangeLog,
   createPendingPropagation,
-  updatePropagationStatus,
   clearPendingPropagation,
   hasPendingPropagation,
 };

@@ -3,7 +3,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   appendChangeLog, createPendingPropagation,
-  updatePropagationStatus, clearPendingPropagation, hasPendingPropagation,
+  clearPendingPropagation, hasPendingPropagation,
 } = require('./changelog.js');
 
 describe('appendChangeLog', () => {

@@ -54,6 +54,10 @@ function loadAllNodes() {
       try {
         nodes[id] = parseAsaYaml(fs.readFileSync(path.join(dir, file), 'utf-8'));
         nodes[id].__category = cat;
+        // 校验文件内 id 与文件名一致，不一致时告警（按文件名寻址）
+        if (nodes[id].id && nodes[id].id !== id) {
+          console.warn(`[ASA] ⚠️ ${cat}/${file}: 文件内 id="${nodes[id].id}" 与文件名不符，以文件名为准`);
+        }
       } catch (e) {
         errors.push(`${cat}/${file}: ${e.message}`);
       }

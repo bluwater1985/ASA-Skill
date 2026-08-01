@@ -18,7 +18,14 @@ function run() {
     const old = fs.readFileSync(docsPath, 'utf-8');
     const firstNode = old.indexOf('<!-- ASA-NODE:');
     const lastEnd = old.lastIndexOf('<!-- ASA-NODE-END -->');
-    if (firstNode > 0) userHeader = old.slice(0, firstNode).trimEnd();
+    if (firstNode < 0) {
+      // 文档无任何 ASA-NODE 标记 → 整份视为用户手写内容保留
+      userHeader = old.trim();
+    } else if (firstNode > 0) {
+      userHeader = old.slice(0, firstNode).trimEnd();
+      // 剥离上次编译追加的尾部 --- 分隔线，避免每次 compile 累积
+      userHeader = userHeader.replace(/\n?---\s*$/, '').trimEnd();
+    }
     if (lastEnd >= 0) {
       // 只保留 ASA-COMPILED 锚点之后的用户手写内容
       const anchorIdx = old.indexOf('<!-- ASA-COMPILED:', lastEnd);

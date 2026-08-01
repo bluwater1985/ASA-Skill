@@ -48,6 +48,7 @@ function run(id) {
   const edges = matrix.edges || [];
   const downstream = bfsForward(edges, id);
   let taskCount = 0;
+  let preservedCount = 0;
 
   for (const d of downstream) {
     if (d.type !== 'TASK') {
@@ -67,6 +68,7 @@ function run(id) {
     const trans = validateTransition(d.id, oldStatus, 'cancelled');
     if (!trans.valid) {
       console.log(`  [INFO] ${d.id}: 状态 ${oldStatus} 不允许自动取消，保留人工评估`);
+      preservedCount++;
       continue;
     }
 
@@ -80,10 +82,12 @@ function run(id) {
     taskCount++;
   }
 
-  if (taskCount === 0) {
+  if (taskCount === 0 && preservedCount === 0) {
     console.log(`  (无下游 TASK 需要 cancelled)`);
+  } else if (taskCount > 0) {
+    console.log(`  ${taskCount} 个 TASK 已标记为 cancelled${preservedCount > 0 ? `，${preservedCount} 个因终态保留人工评估` : ''}`);
   } else {
-    console.log(`  共 ${taskCount} 个 TASK 已标记为 cancelled`);
+    console.log(`  ${preservedCount} 个下游 TASK 因终态无法自动取消，保留人工评估`);
   }
 
   // 若被废弃/级联取消的节点是当前活跃任务，清除 activeTask

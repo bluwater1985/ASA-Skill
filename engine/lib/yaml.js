@@ -82,7 +82,9 @@ function parseScalar(s) {
 function stringifyScalar(v) {
   if (typeof v === 'string') {
     // 需要引号包裹的情况：内容含特殊字符、换行，或可能被 parseScalar 重新解释
-    const needsQuoting = v.includes(': ') || v.includes('#') || v.startsWith('-') || v === '' ||
+    // 会被 parseScalar 重新解释为 flow 集合的字符串必须加引号
+    const flowCollection = (v.startsWith('[') && v.endsWith(']')) || (v.startsWith('{') && v.endsWith('}'));
+    const needsQuoting = flowCollection || v.includes(': ') || v.includes('#') || v.startsWith('-') || v === '' ||
       v.includes('\n') || v.includes('\t') || v.includes('\\') || v.includes("'") || v.includes('"') ||
       /^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false' || v === 'null' || v === '~';
     if (needsQuoting) return `"${escapeDq(v)}"`;
