@@ -75,6 +75,19 @@ function parseScalar(s) {
   if (/^[|>][-+]?\s*$/.test(s)) {
     throw new Error(`不支持 YAML 块标量（${s}），请改用引号字符串`);
   }
+  // 未闭合引号/方括号/花括号 → 显式报错，避免脏字符串进入数据
+  if (s.startsWith('"') && (s.match(/"/g) || []).length % 2 !== 0) {
+    throw new Error(`未闭合的双引号: "${s.slice(0, 30)}..."`);
+  }
+  if (s.startsWith("'") && (s.match(/'/g) || []).length % 2 !== 0) {
+    throw new Error(`未闭合的单引号: '${s.slice(0, 30)}...'`);
+  }
+  if (s.startsWith('[') && (s.match(/\[/g) || []).length !== (s.match(/\]/g) || []).length) {
+    throw new Error(`未闭合的方括号: ${s.slice(0, 30)}...`);
+  }
+  if (s.startsWith('{') && (s.match(/\{/g) || []).length !== (s.match(/\}/g) || []).length) {
+    throw new Error(`未闭合的花括号: ${s.slice(0, 30)}...`);
+  }
   if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
   if (s === '{}') return {};
@@ -110,6 +123,7 @@ function stringifyScalar(v) {
     const flowCollection = (v.startsWith('[') && v.endsWith(']')) || (v.startsWith('{') && v.endsWith('}'));
     // 含冒号（URL/时间/路径）或首尾空白都必须加引号，否则会被解析器误判/剥白
     const needsQuoting = flowCollection || v.includes(':') || v.trim() !== v ||
+      /^[|>][-+]?$/.test(v) || // 块标量标记，避免写坏
       v.includes('#') || v.startsWith('-') || v === '' ||
       v.includes('\n') || v.includes('\t') || v.includes('\\') || v.includes("'") || v.includes('"') ||
       /^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false' || v === 'null' || v === '~';
@@ -200,8 +214,8 @@ function parseAsaYaml(text) {
                  (itemContent.startsWith('{') && itemContent.endsWith('}'))) {
         // flow 集合（即使含冒号）：\n  - [a:b, c] / - {k: v} → 交给 parseScalar
         arr.push(parseScalar(itemContent));
-      } else if (itemContent.includes(':')) {
-        // 对象数组项: \n  - key: value\n    subkey: val
+      } else if (/^[^:\s][^:]*:(?:\s|$)/.test(itemContent)) {
+        // 对象数组项：冒号后须跟空白或行尾（否则 https://x、C:/path、12:30 是标量）
         const colonIdx = itemContent.indexOf(':');
         const key = itemContent.slice(0, colonIdx).trim();
         const rawVal = itemContent.slice(colonIdx + 1).trim();

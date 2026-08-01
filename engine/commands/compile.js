@@ -56,6 +56,23 @@ function run() {
     userHeader = userHeader.replace(/\n?---\s*$/, '').trimEnd();
   }
 
+  // 提取节点之间的手写笔记（keyed by 后续节点 ID），渲染时重新插入
+  const nodeNotes = {};
+  if (fs.existsSync(docsPath)) {
+    const old = fs.readFileSync(docsPath, 'utf-8');
+    const nodePositions = [];
+    for (const match of old.matchAll(/<!-- ASA-NODE: ([A-Z]+-\d+) -->/g)) {
+      nodePositions.push({ id: match[1], start: match.index });
+    }
+    for (let i = 1; i < nodePositions.length; i++) {
+      const prevEnd = old.lastIndexOf('<!-- ASA-NODE-END -->', nodePositions[i].start);
+      if (prevEnd < 0) continue;
+      const gap = old.slice(prevEnd + '<!-- ASA-NODE-END -->'.length, nodePositions[i].start);
+      const note = gap.replace(/^\s*\n?---\s*\n?/, '').replace(/\n?---\s*$/, '').trim();
+      if (note) nodeNotes[nodePositions[i].id] = note;
+    }
+  }
+
   let reqContent = userHeader ? `${userHeader}\n\n---\n\n` : '# 项目核心需求资产清单\n\n';
   for (const [id, node] of Object.entries(nodes)) {
     if (node.__category !== 'requirements') continue;
@@ -76,6 +93,8 @@ function run() {
       console.warn(`[ASA] ⚠️ ${id} 的 acceptanceCriteria 不是数组（${typeof node.acceptanceCriteria}），compile 不渲染，patch 将跳过反写`);
     }
     reqContent += `<!-- ASA-NODE-END -->\n\n---\n\n`;
+    // 重新插入该节点之后的手写笔记
+    if (nodeNotes[id]) reqContent += `${nodeNotes[id]}\n\n`;
   }
 
   // 文档版本锚点：反映最新编译的节点版本

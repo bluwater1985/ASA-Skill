@@ -74,8 +74,10 @@ function checkAndExit(target, mode) {
   }
 
   const content = fs.readFileSync(matrixPath, 'utf-8');
-  const activeTask = content.match(/activeTask:\s*"?([^"\n\s]+)"?/)?.[1];
-  const phase = content.match(/phase:\s*"?([^"\n\s]+)"?/)?.[1];
+  // 过滤注释行后再匹配，避免命中注释里的陈旧值
+  const codeLines = content.split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
+  const activeTask = codeLines.match(/activeTask:\s*"?([^"\n\s]+)"?/)?.[1];
+  const phase = codeLines.match(/phase:\s*"?([^"\n\s]+)"?/)?.[1];
 
   if (target && target.includes('.asa/')) { allow(mode); return; }
   if (['init', 'discovery', 'architecture', 'task-breakdown'].includes(phase)) { allow(mode); return; }
