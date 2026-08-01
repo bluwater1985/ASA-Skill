@@ -36,6 +36,64 @@ function unescapeDq(s) {
   return out;
 }
 
+/**
+ * 旧数据宽松化预处理：把严格解析器会拒绝的旧写法转成可解析格式。
+ * 用于存量项目升级迁移（块标量 |/>、Tab 缩进）。
+ * @param {string} text 原始 YAML 文本
+ * @returns {{ text: string, fixes: string[] }} 软化后的文本 + 已应用的修复清单
+ */
+function softenYaml(text) {
+  const lines = text.split('\n');
+  const out = [];
+  const fixes = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // 空行 / 注释：原样保留
+    if (trimmed === '' || trimmed.startsWith('#')) { out.push(raw); continue; }
+
+    // Tab 缩进 → 空格（每个 Tab 转 2 空格，对齐 ASA 缩进约定）
+    if (/^\t/.test(raw)) {
+      const tabs = raw.match(/^\t+/)[0].length;
+      out.push('  '.repeat(tabs) + raw.replace(/^\t+/, ''));
+      fixes.push(`行 ${i + 1}: Tab 缩进 → 空格`);
+      continue;
+    }
+
+    // 块标量检测：`key: |` 或 `key: >`（含 |- / >- / |+ / >+）
+    const m = raw.match(/^(\s*)([^:\s][^:]*):\s*([|>][-+]?)\s*$/);
+    if (m) {
+      const [, indent, key, mode] = m;
+      const keyIndent = indent.length;
+      // 收集块内容：后续更缩进的行；遇到去缩进/EOF 结束
+      const blockLines = [];
+      let j = i + 1;
+      while (j < lines.length) {
+        const next = lines[j];
+        const nTrim = next.trim();
+        if (nTrim === '') { blockLines.push(''); j++; continue; }
+        const nIndent = next.length - next.trimStart().length;
+        if (nIndent <= keyIndent) break;
+        blockLines.push(next.slice(keyIndent + 2)); // 剥离块缩进（key 缩进 + 2）
+        j++;
+      }
+      // | 字面量：保留换行；> 折叠：空格连接
+      const content = mode.startsWith('>')
+        ? blockLines.join(' ').replace(/\s+/g, ' ').trim()
+        : blockLines.join('\n').replace(/^\n+|\n+$/g, '');
+      out.push(`${indent}${key}: "${escapeDq(content)}"`);
+      fixes.push(`行 ${i + 1}: 块标量 ${mode} → 引号字符串`);
+      i = j - 1;
+      continue;
+    }
+
+    out.push(raw);
+  }
+  return { text: out.join('\n'), fixes };
+}
+
+
 // 引号感知剥离行尾注释：仅在引号外、且 # 前有空白时视为注释
 function stripInlineComment(s) {
   let quote = null;
@@ -404,4 +462,4 @@ function stringifyAsaYaml(obj, indent = 0) {
   return out;
 }
 
-module.exports = { parseAsaYaml, stringifyAsaYaml };
+module.exports = { parseAsaYaml, stringifyAsaYaml, softenYaml };

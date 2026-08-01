@@ -8,13 +8,19 @@ const { parseAsaYaml, stringifyAsaYaml } = require('./yaml.js');
 function matrixPath() { return path.join(process.cwd(), '.asa/matrix.yaml'); }
 function docsDir() { return path.join(process.cwd(), 'docs'); }
 
-function loadMatrix() {
+function loadMatrix(lenient) {
   const mp = matrixPath();
   if (!fs.existsSync(mp)) {
     throw new Error('找不到 .asa/matrix.yaml 文件');
   }
   try {
-    return parseAsaYaml(fs.readFileSync(mp, 'utf-8'));
+    const raw = fs.readFileSync(mp, 'utf-8');
+    if (lenient) {
+      const { text, fixes } = require('./yaml.js').softenYaml(raw);
+      if (fixes.length > 0) console.warn(`[ASA] 迁移: matrix.yaml 软化 ${fixes.length} 处旧写法`);
+      return parseAsaYaml(text);
+    }
+    return parseAsaYaml(raw);
   } catch (e) {
     throw new Error(`.asa/matrix.yaml 解析失败: ${e.message}。请修复该文件，或运行 reconcile（会从骨架重建，edges 需备份恢复）`);
   }
@@ -64,19 +70,29 @@ function calculateNodesDigest() {
   return `sha256:${hash.digest('hex')}`;
 }
 
-function loadAllNodes() {
+// 加载全部节点。lenient=true 时先用 softenYaml 软化旧写法（块标量/Tab），
+// 返回 { nodes, fixes }，fixes 记录每个文件的软化情况（用于迁移报告）。
+function loadAllNodes(lenient) {
   const nodes = {};
   const categories = ['requirements', 'architecture', 'tasks'];
   const errors = [];
+  const fixes = [];
   for (const cat of categories) {
     const dir = path.join(process.cwd(), `.asa/nodes/${cat}`);
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml')).sort()) {
       const id = path.basename(file, '.yaml');
+      const filePath = path.join(dir, file);
       try {
-        nodes[id] = parseAsaYaml(fs.readFileSync(path.join(dir, file), 'utf-8'));
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        if (lenient) {
+          const { text, fixes: fxs } = require('./yaml.js').softenYaml(raw);
+          if (fxs.length > 0) fixes.push(`${cat}/${file}: ${fxs.join('; ')}`);
+          nodes[id] = parseAsaYaml(text);
+        } else {
+          nodes[id] = parseAsaYaml(raw);
+        }
         nodes[id].__category = cat;
-        // 校验文件内 id 与文件名一致，不一致时告警（按文件名寻址）
         if (nodes[id].id && nodes[id].id !== id) {
           console.warn(`[ASA] ⚠️ ${cat}/${file}: 文件内 id="${nodes[id].id}" 与文件名不符，以文件名为准`);
         }
@@ -89,6 +105,7 @@ function loadAllNodes() {
     const detail = errors.slice(0, 5).map(e => `  - ${e}`).join('\n');
     throw new Error(`${errors.length} 个节点文件解析失败：\n${detail}\n  请用 validate-yaml hook 定位问题，或修复这些文件后重试`);
   }
+  if (lenient) return { nodes, fixes };
   return nodes;
 }
 
