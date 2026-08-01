@@ -23,7 +23,7 @@ function executeAction(node, action) {
         return 'failed';
       }
       node.status = value;
-      appendChangeLog(node, value, `传播动作: set_status ${value}`);
+      appendChangeLog(node, value, `传播动作: set_status ${value}`, 'system');
       console.log(`  ✓ ${node.id}: set_status ${value} (原: ${old})`);
       return 'applied';
     }
@@ -37,7 +37,7 @@ function executeAction(node, action) {
       if (!Array.isArray(node[target])) node[target] = [];
       if (node[target].includes(value)) return 'skipped'; // 幂等
       node[target].push(value);
-      appendChangeLog(node, 'modified', `传播动作: append ${target} += "${value}"`);
+      appendChangeLog(node, 'modified', `传播动作: append ${target} += "${value}"`, 'system');
       console.log(`  ✓ ${node.id}: append_to_array ${target} +1`);
       return 'applied';
     }
@@ -45,7 +45,7 @@ function executeAction(node, action) {
       if (!target) return 'failed';
       if (node[target] === value) return 'skipped'; // 幂等
       node[target] = value;
-      appendChangeLog(node, 'modified', `传播动作: set ${target} = "${value}"`);
+      appendChangeLog(node, 'modified', `传播动作: set ${target} = "${value}"`, 'system');
       console.log(`  ✓ ${node.id}: set_field ${target}`);
       return 'applied';
     }
@@ -62,7 +62,7 @@ function executeAction(node, action) {
       const idx = node[target].indexOf(old);
       if (idx === -1) return 'skipped'; // 无可替换 = 已是最新
       node[target][idx] = neu;
-      appendChangeLog(node, 'modified', `传播动作: replace ${target} "${old}" → "${neu}"`);
+      appendChangeLog(node, 'modified', `传播动作: replace ${target} "${old}" → "${neu}"`, 'system');
       console.log(`  ✓ ${node.id}: replace_in_array ${target}`);
       return 'applied';
     }
@@ -178,7 +178,8 @@ function run(startId) {
   });
   writeNode(source);
 
-  console.log(`  → ${startId}: v${oldVersion} → v${source.version}, status: modified`);
+  const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
+  console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
   console.log(`  ✓ 重新 compile...`);
 
   try {

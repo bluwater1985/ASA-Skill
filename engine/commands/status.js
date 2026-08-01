@@ -1,6 +1,6 @@
 // engine/commands/status.js — 状态机推进
 const path = require('path');
-const { loadAllNodes, atomicWriteYaml } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, loadAllNodes, atomicWriteYaml } = require('../lib/matrix.js');
 const { validateTransition } = require('../lib/state-machine.js');
 const { appendChangeLog } = require('../lib/changelog.js');
 
@@ -36,6 +36,16 @@ function run(id, newStatus) {
     atomicWriteYaml(path.join(process.cwd(), `.asa/nodes/${cat}/${id}.yaml`), node);
     node.__category = cat;
   }
+
+  // 同步更新 matrix 摘要索引，避免陈旧状态
+  try {
+    const matrix = loadMatrix();
+    const mapKey = cat === 'requirements' ? 'requirements' : cat === 'architecture' ? 'architecture' : 'tasks';
+    if (matrix[mapKey] && matrix[mapKey][id]) {
+      matrix[mapKey][id].status = newStatus;
+      saveMatrix(matrix);
+    }
+  } catch (e) { /* 摘要同步失败不影响主操作 */ }
 
   console.log(`[ASA] ✅ ${id}: ${oldStatus} → ${newStatus} (v${version})`);
 }

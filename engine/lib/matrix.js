@@ -61,8 +61,13 @@ function loadAllNodes() {
 }
 
 function atomicWriteYaml(filePath, data) {
+  // 剔除内部字段（__ 前缀），防止 __category 等泄漏进节点文件
+  const clean = { ...data };
+  for (const k of Object.keys(clean)) {
+    if (k.startsWith('__')) delete clean[k];
+  }
   const tmpPath = filePath + '.tmp';
-  fs.writeFileSync(tmpPath, stringifyAsaYaml(data), 'utf-8');
+  fs.writeFileSync(tmpPath, stringifyAsaYaml(clean), 'utf-8');
   fs.renameSync(tmpPath, filePath);
 }
 

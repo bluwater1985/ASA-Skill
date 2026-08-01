@@ -41,8 +41,8 @@ function run() {
   const matrix = loadMatrix();
   const nodes = loadAllNodes();
 
-  // 存量迁移（schemaVersion 检查）
-  if (!matrix.meta || !matrix.meta.schemaVersion) {
+  // 存量迁移（schemaVersion < 2 才执行，避免 schemaVersion=1 的项目永远无法迁移）
+  if (!matrix.meta || (matrix.meta.schemaVersion || 0) < 2) {
     matrix.meta = matrix.meta || {};
     const migrated = migrateNodes(nodes);
     if (migrated.length > 0) {

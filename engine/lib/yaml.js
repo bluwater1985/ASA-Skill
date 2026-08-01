@@ -113,23 +113,32 @@ function parseAsaYaml(text) {
       // 确保 parent 是数组
       let arr = parent;
       if (!Array.isArray(arr)) {
-        // parent 是对象，需要找到正确的容器并转换
-        // 查找 stack 中创建此对象的上一级 entry
+        // 情况 B：parent 是对象，通过上一级 entry 找到「entryObj[ek] === parent」的引用并替换
         for (let si = stack.length - 2; si >= 0; si--) {
           const entry = stack[si];
           const entryObj = entry.obj;
+          if (Array.isArray(entryObj)) continue;
           for (const ek of Object.keys(entryObj)) {
             if (entryObj[ek] === parent && !Array.isArray(entryObj[ek])) {
               entryObj[ek] = [];
               arr = entryObj[ek];
-              // 更新栈顶 obj 为数组
               stack[stack.length - 1].obj = arr;
               break;
             }
           }
           if (Array.isArray(arr)) break;
         }
-        // 如果仍然不是数组，尝试在 parent 对象上创建数组属性
+        // 情况 A：B 找不到引用，且栈顶 obj 就是空对象占位符（`- key:` 空值创建）→ 就地转数组
+        if (!Array.isArray(arr) && Object.keys(arr).length === 0 && stack.length > 1) {
+          const top = stack[stack.length - 1];
+          top.obj = [];
+          arr = top.obj;
+          // 同步更新父级对象引用（item[key]）
+          const parentEntry = stack[stack.length - 2];
+          if (parentEntry && parentEntry.nestedKey) {
+            parentEntry.obj[parentEntry.nestedKey] = arr;
+          }
+        }
         if (!Array.isArray(arr)) {
           // 降级：将 parent 设为数组（极少情况）
           throw new Error(`YAML 解析错误：无法将对象转换为数组 (indent=${indent}, content="${content}")`);
@@ -159,7 +168,15 @@ function parseAsaYaml(text) {
           item[key] = parseScalar(rawVal);
         }
         arr.push(item);
-        stack.push({ indent, obj: item });
+        if (rawVal === '') {
+          // 嵌套首键：双压栈
+          //   先压 item（带 nestedKey 标记，兄弟键可回到 item）
+          //   再压 item[key] 的嵌套目标（更深行挂到这里）
+          stack.push({ indent: indent, obj: item, nestedKey: key });
+          stack.push({ indent: indent + 2, obj: item[key] });
+        } else {
+          stack.push({ indent, obj: item });
+        }
       } else {
         // 标量数组项: \n  - value
         arr.push(parseScalar(itemContent));
@@ -207,10 +224,10 @@ function stringifyAsaArray(arr, indent) {
         const [firstKey, firstVal] = entries[0];
         if (typeof firstVal === 'object' && firstVal !== null && !Array.isArray(firstVal)) {
           out += `${pad}- ${firstKey}:\n`;
-          out += stringifyAsaYaml(firstVal, indent + 1);
+          out += stringifyAsaYaml(firstVal, indent + 2);
         } else if (Array.isArray(firstVal)) {
           out += `${pad}- ${firstKey}:\n`;
-          out += stringifyAsaArray(firstVal, indent + 1);
+          out += stringifyAsaArray(firstVal, indent + 2);
         } else {
           out += `${pad}- ${firstKey}: ${stringifyScalar(firstVal)}\n`;
         }

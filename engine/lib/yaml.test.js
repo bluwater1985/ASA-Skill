@@ -362,6 +362,35 @@ describe('review findings', () => {
     assert.equal(result.key, '');
   });
 
+  it('nested array as FIRST key with sibling keys survives round-trip', () => {
+    const obj = {
+      pendingPropagation: [{
+        affectedNodes: [{ id: 'ARCH-001', action: { type: 'set_status', value: 'superseded' } }],
+        changeVersion: 5,
+        status: 'pending',
+      }]
+    };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.equal(Array.isArray(back.pendingPropagation[0].affectedNodes), true);
+    assert.equal(back.pendingPropagation[0].affectedNodes[0].id, 'ARCH-001');
+    assert.equal(back.pendingPropagation[0].affectedNodes[0].action.type, 'set_status');
+    assert.equal(back.pendingPropagation[0].changeVersion, 5);
+    assert.equal(back.pendingPropagation[0].status, 'pending');
+  });
+
+  it('parses hand-written YAML with nested object as first key', () => {
+    const yaml = `pendingPropagation:
+  - action:
+      type: set_status
+      value: superseded
+    id: ARCH-001`;
+    const result = parseAsaYaml(yaml);
+    assert.equal(result.pendingPropagation[0].id, 'ARCH-001');
+    assert.equal(result.pendingPropagation[0].action.type, 'set_status');
+    assert.equal(result.pendingPropagation[0].action.value, 'superseded');
+  });
+
   it('nested array as non-first key survives round-trip', () => {
     const obj = {
       pendingPropagation: [{

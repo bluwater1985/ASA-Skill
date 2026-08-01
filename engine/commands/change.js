@@ -53,7 +53,7 @@ function run(cmd, id) {
     console.log(`    2. node .asa/index.js impact ${id}   # 查看影响`);
     console.log(`    3. node .asa/index.js propagate ${id}  # 执行级联更新（幂等）`);
   } else {
-    console.log(`  TASK 修改不触发传播链。编辑 ${id}.yaml 后运行:`);
+    console.log(`  ${type} 修改不触发传播链（REQ 是传播链唯一入口）。编辑 ${id}.yaml 后运行:`);
     console.log(`    node .asa/index.js compile  # 重新编译 docs`);
   }
 }

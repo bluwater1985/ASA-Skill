@@ -78,7 +78,7 @@ function checkAndExit(target, mode) {
   const phase = content.match(/phase:\s*"?([^"\n\s]+)"?/)?.[1];
 
   if (target && target.includes('.asa/')) { allow(mode); return; }
-  if (['discovery', 'architecture', 'task-breakdown'].includes(phase)) { allow(mode); return; }
+  if (['init', 'discovery', 'architecture', 'task-breakdown'].includes(phase)) { allow(mode); return; }
 
   // (none) 或空字符串视为「无活跃任务」
   if (!activeTask || activeTask === '(none)') {

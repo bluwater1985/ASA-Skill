@@ -96,6 +96,14 @@ function runNode(prefix, args) {
   saveMatrix(matrix);
 
   console.log(`[ASA] ✅ ${id} 已创建: ${node.title}`);
+
+  // 自动重编译 docs，避免 docs 与 nodes 漂移
+  if (p === 'REQ') {
+    try {
+      const { run: compile } = require('./compile.js');
+      compile();
+    } catch (e) { /* docs 编译失败不影响创建 */ }
+  }
 }
 
 module.exports = { run: runNode };
