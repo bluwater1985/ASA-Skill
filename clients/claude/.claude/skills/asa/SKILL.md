@@ -87,6 +87,7 @@ cp ~/.asa/hooks/validate-yaml.js .asa/hooks/
 meta:
   project: "<项目名称>"
   phase: "discovery"
+  schemaVersion: 2
   docsExpectedDigest: "sha256:empty"
   docsActualDigest: "sha256:empty"
 risks: []
@@ -118,12 +119,12 @@ edges: []
 {
   "hooks": {
     "PreToolUse": [{
-      "matcher": "Write|Edit|Replace|ApplyDiff|MoveFile",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
       "command": "node .asa/hooks/check-work-order.js \"$FILE_PATH\"",
       "description": "ASA 状态拦截：无活跃 Task 时阻止文件修改"
     }],
     "PostToolUse": [{
-      "matcher": "Write|Edit|Replace|ApplyDiff|MoveFile",
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
       "command": "node .asa/hooks/validate-yaml.js \"$FILE_PATH\"",
       "description": "ASA YAML 校验：写入后自动校验"
     }]
@@ -148,7 +149,7 @@ chmod +x .husky/pre-commit
 如果项目还没有安装 husky：
 ```bash
 npx husky init
-echo "node .asa/index.js validate" > .husky/pre-commit
+echo "node .asa/index.js validate || exit 1" > .husky/pre-commit
 ```
 
 ### Step 8: 总结

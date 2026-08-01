@@ -28,7 +28,7 @@ function run(id) {
   }
 
   console.log('  日期        类型            版本  操作者  摘要');
-  console.log('  ─' .repeat(60));
+  console.log('  ' + '─'.repeat(60));
   for (const entry of log) {
     const date = (entry.date || '?').padEnd(12);
     const type = (entry.type || '').padEnd(16);

@@ -28,7 +28,9 @@ const PROJECT_ROOT = findProjectRoot(SCRIPT_DIR);
 const matrixPath = path.join(PROJECT_ROOT, '.asa/matrix.yaml');
 
 // ── 入口分流 ──
-if (process.argv[2] && !process.argv[2].includes('--')) {
+// argv[2] 是真实文件路径 → Claude argv 模式
+// argv[2] 为空/flag/未展开的 $FILE_PATH 字面量 → stdin JSON 模式（Claude Code 官方协议）
+if (process.argv[2] && !process.argv[2].startsWith('-') && !process.argv[2].startsWith('$')) {
   checkAndExit(process.argv[2] || '', 'claude');
 } else {
   let data = '';
@@ -39,6 +41,8 @@ if (process.argv[2] && !process.argv[2].includes('--')) {
       const filePath = payload?.arguments?.file_path
         || payload?.arguments?.path
         || payload?.toolInput?.file_path
+        || payload?.tool_input?.file_path
+        || payload?.hook_input?.file_path
         || payload?.file_path
         || '';
       checkAndExit(filePath, 'gemini');
@@ -67,25 +71,33 @@ function checkAndExit(target, mode) {
   if (target && target.includes('.asa/')) { allow(mode); return; }
   if (['discovery', 'architecture', 'task-breakdown'].includes(phase)) { allow(mode); return; }
 
-  if (!activeTask) {
-    deny(mode, `ASA 拦截：当前没有活跃 Task（phase: ${phase}）。可能原因：其它会话已释放任务或状态过期。请立即运行 node .asa/index.js reconcile 刷新状态摘要，然后通过 "激活任务 TSK-XXX" 启动新任务。`);
+  // (none) 或空字符串视为「无活跃任务」
+  if (!activeTask || activeTask === '(none)') {
+    deny(mode, `当前没有活跃 Task（phase: ${phase}）。可能原因：其它会话已释放任务或状态过期。请先运行 node .asa/index.js reconcile 刷新状态摘要，再用 node .asa/index.js set active-task <TASK-ID> 激活任务。`);
     return;
   }
 
   allow(mode);
 }
 
-function allow(mode) {
-  if (mode === 'gemini') console.log(JSON.stringify({ decision: 'allow' }));
+function allow(mode, msg) {
+  if (mode === 'gemini') {
+    const res = { decision: 'allow' };
+    // 始终带标记，让用户区分「hook 放行」与「hook 未运行/报错」
+    if (msg) res.systemMessage = `[ASA 放行] ${msg}`;
+    console.log(JSON.stringify(res));
+  } else if (msg) console.log(`[ASA 放行] ${msg}`);
   process.exit(0);
 }
 
 function deny(mode, reason) {
+  const marked = `[ASA 拦截] ${reason}`;
   if (mode === 'gemini') {
-    console.log(JSON.stringify({ decision: 'deny', reason }));
+    // 拦截信息必须明确输出，避免与 hook 报错混淆
+    console.log(JSON.stringify({ decision: 'deny', reason: marked, systemMessage: marked }));
     process.exit(0);
   } else {
-    console.error(`[ASA] 拦截: ${reason}`);
+    console.error(marked);
     process.exit(2);
   }
 }

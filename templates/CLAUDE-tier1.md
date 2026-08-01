@@ -16,6 +16,6 @@
 - **L**（> 2 hr）：架构 review + 影响分析
 
 ## 命令
-- `/asa code <TASK-ID>` — 开始实现
-- `/asa status` — 显示状态
-- `/asa back <phase>` — 回退
+- `node .asa/index.js status <ID> <new-status>` — 推进节点状态
+- `node .asa/index.js impact <ID>` — 查看影响范围
+- `node .asa/index.js compile` — 编译 docs

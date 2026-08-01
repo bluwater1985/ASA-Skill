@@ -35,7 +35,7 @@ function run() {
   for (const e of entries) {
     const id = e.node.padEnd(10);
     const ver = String(e.version).padEnd(5);
-    const type = e.type.padEnd(16);
+    const type = (e.type || '?').padEnd(18);
     const by = e.by.padEnd(8);
     const summary = e.summary.length > 30 ? e.summary.slice(0, 27) + '...' : e.summary;
     console.log(`${e.date}  ${id}${ver}${type}${by}${summary}`);

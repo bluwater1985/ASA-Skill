@@ -6,10 +6,10 @@
  */
 const TRANSITIONS = {
   REQ: {
-    proposed:     ['approved', 'rejected'],
+    proposed:     ['approved', 'rejected', 'deprecated'],
     approved:     ['implemented', 'modified', 'deprecated'],
     implemented:  ['modified', 'deprecated'],
-    modified:     ['approved', 'rejected'],
+    modified:     ['approved', 'rejected', 'deprecated'],
     rejected:     [],            // 吸收态（不可变）
     deprecated:   [],            // 吸收态
   },

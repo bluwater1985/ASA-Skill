@@ -100,8 +100,8 @@ edges: []
 **文件已存在时**：执行以下步骤完成语义化合并：
 
 ```
-Step 1: 用 view_file 读取已存在的 GEMINI.md 全文
-Step 2: 用 view_file 读取 ~/.asa/templates/gemini-tier{N}.md 模板全文
+Step 1: 用 read_file 读取已存在的 GEMINI.md 全文
+Step 2: 用 read_file 读取 ~/.asa/templates/gemini-tier{N}.md 模板全文
 Step 3: 对比两份内容，识别差异：
   - 用户手写规约（项目禁忌、开发规范、人工追加的规则）→ 保留
   - ASA 标准启动序列段落 → 用模板最新版本替换
@@ -121,7 +121,7 @@ Step 4: 将合并后的内容写入 GEMINI.md
         "hooks": [{
           "name": "asa-check-work-order",
           "type": "command",
-          "command": "node <项目绝对路径>/.asa/hooks/check-work-order.js",
+          "command": "node \"<项目绝对路径>/.asa/hooks/check-work-order.js\"",
           "timeout": 5000,
           "description": "ASA：无活跃 Task 时阻止修改"
         }]
@@ -133,7 +133,7 @@ Step 4: 将合并后的内容写入 GEMINI.md
         "hooks": [{
           "name": "asa-validate-yaml",
           "type": "command",
-          "command": "node <项目绝对路径>/.asa/hooks/validate-yaml.js",
+          "command": "node \"<项目绝对路径>/.asa/hooks/validate-yaml.js\"",
           "timeout": 5000,
           "description": "ASA：写入后校验 YAML"
         }]

@@ -13,6 +13,7 @@ const { run: deprecate } = require('./commands/deprecate.js');
 const { run: addNode } = require('./commands/add.js');
 const { run: journal } = require('./commands/journal.js');
 const { run: history } = require('./commands/history.js');
+const { run: setMeta } = require('./commands/set.js');
 
 const [,, command, ...args] = process.argv;
 
@@ -39,13 +40,16 @@ switch (command) {
   case 'add-task':    addNode('task', args.join(' ')); break;
   case 'journal':     journal(); break;
   case 'history':     history(args[0]); break;
+  case 'set':         setMeta(args[0], args[1]); break;
   default:
     console.log('ASA CLI v3 — 用法:');
-    console.log('  compile | patch | traverse <id> | reconcile | validate');
-    console.log('  status <id> <new-status> | impact <id>');
-    console.log('  edge add <from> <to> --type depends|extends|refines');
-    console.log('  propagate <id>');
-    console.log('  change-req|change-arch|change-task <id>');
-    console.log('  deprecate <id>');
+    console.log('  基础:   compile | patch | traverse <id> | reconcile | validate');
+    console.log('  状态:   status <id> <new-status> | deprecate <id>');
+    console.log('  影响:   impact <id> | propagate <id>');
+    console.log('  变更:   change-req|change-arch|change-task <id>');
+    console.log('  新增:   add-req <title> | add-arch <title> | add-task <title>');
+    console.log('  查询:   journal | history <id>');
+    console.log('  边:     edge add <from> <to> --type depends|extends|refines | edge rm <from> <to>');
+    console.log('  设置:   set phase <phase> | set active-task <TASK-ID> | set active-task clear');
     process.exit(1);
 }

@@ -1,7 +1,7 @@
 // engine/commands/add.js — 新增节点 (add-req / add-arch / add-task)
 const path = require('path');
 const fs = require('fs');
-const { atomicWriteYaml } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, atomicWriteYaml } = require('../lib/matrix.js');
 
 const TEMPLATES = {
   REQ: {
@@ -72,6 +72,15 @@ function runNode(prefix, title) {
   if (title) node.title = title;
 
   atomicWriteYaml(path.join(dir, `${id}.yaml`), node);
+
+  // 登记到 matrix 摘要索引
+  const matrix = loadMatrix();
+  const key = p === 'REQ' ? 'requirements' : p === 'ARCH' ? 'architecture' : 'tasks';
+  matrix[key] = matrix[key] || {};
+  matrix[key][id] = { title: node.title, status: node.status };
+  if (key === 'tasks') matrix[key][id].file = `.asa/nodes/tasks/${id}.yaml`;
+  saveMatrix(matrix);
+
   console.log(`[ASA] ✅ ${id} 已创建: ${node.title}`);
 }
 

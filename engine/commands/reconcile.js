@@ -1,7 +1,7 @@
 // engine/commands/reconcile.js — 状态一致性修复 + 存量迁移
 const fs = require('fs');
 const path = require('path');
-const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml, rebuildSummary } = require('../lib/matrix.js');
 
 // 存量状态 → 新状态机映射表
 const MIGRATION_MAP = {
@@ -16,7 +16,7 @@ function getNodeType(id) {
 }
 
 function migrateNodes(nodes) {
-  let migrated = false;
+  const migrated = [];
   for (const [id, node] of Object.entries(nodes)) {
     const type = getNodeType(id);
     if (!type) continue;
@@ -31,7 +31,7 @@ function migrateNodes(nodes) {
       if (!node.changeLog) node.changeLog = [];
       if (!node.pendingPropagation) node.pendingPropagation = [];
       console.log(`[ASA] 迁移: ${id} status: ${oldStatus} → ${newStatus}`);
-      migrated = true;
+      migrated.push(id);
     }
   }
   return migrated;
@@ -45,9 +45,10 @@ function run() {
   if (!matrix.meta || !matrix.meta.schemaVersion) {
     matrix.meta = matrix.meta || {};
     const migrated = migrateNodes(nodes);
-    if (migrated) {
-      // 写回已迁移的节点文件
-      for (const [id, node] of Object.entries(nodes)) {
+    if (migrated.length > 0) {
+      // 只写回实际迁移的节点
+      for (const id of migrated) {
+        const node = nodes[id];
         const cat = node.__category;
         if (!cat) continue;
         delete node.__category;
@@ -58,13 +59,16 @@ function run() {
         node.__category = cat;
       }
       matrix.meta.schemaVersion = 2;
-      saveMatrix(matrix); // 立即持久化 schemaVersion
     } else {
       matrix.meta.schemaVersion = 1;
-      saveMatrix(matrix);
     }
+    saveMatrix(matrix);
     console.log(`[ASA] schemaVersion: ${matrix.meta.schemaVersion}`);
   }
+
+  // 从 nodes/ 重建摘要索引（以节点文件为准）
+  rebuildSummary(matrix, nodes);
+  saveMatrix(matrix);
 
   // TASK 状态一致性修复（原有逻辑）
   let hasChanges = false;
@@ -89,7 +93,7 @@ function run() {
   const activeTask = matrix.meta?.activeTask || '(none)';
   const phase = matrix.meta?.phase || '(unknown)';
   const total = matrix.tasks ? Object.keys(matrix.tasks).length : 0;
-  const done = matrix.tasks ? Object.values(matrix.tasks).filter(t => t.status === 'done').length : 0;
+  const done = matrix.tasks ? Object.values(matrix.tasks).filter(t => ['done', 'completed', 'verified'].includes(t.status)).length : 0;
   console.log(`[ASA STATUS] Phase: ${phase} | ActiveTask: ${activeTask} | Tasks: ${done}/${total} done`);
 }
 

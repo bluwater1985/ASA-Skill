@@ -56,6 +56,13 @@ function run(id) {
       continue;
     }
 
+    // 校验 cancelled 转换：completed/verified 等终态不允许取消
+    const trans = validateTransition(d.id, oldStatus, 'cancelled');
+    if (!trans.valid) {
+      console.log(`  [INFO] ${d.id}: 状态 ${oldStatus} 不允许自动取消（${trans.error.split('）')[0]}），保留人工评估`);
+      continue;
+    }
+
     taskNode.status = 'cancelled';
     appendChangeLog(taskNode, 'cancelled', `级联废弃: ${id} 已 deprecated`);
     const tCat = taskNode.__category;

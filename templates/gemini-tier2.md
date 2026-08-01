@@ -2,7 +2,7 @@
 
 ## ⚠️ 强制启动序列
 **每次对话开始，AI 必须执行以下步骤，不可跳过：**
-1. **必须首选使用 view_file 工具完整阅读本文件**，禁止凭记忆或猜测执行规则
+1. **必须首选使用 read_file 工具完整阅读本文件**，禁止凭记忆或猜测执行规则
 2. **运行维护命令**：`node .asa/index.js reconcile && node .asa/index.js patch`
 3. **读取状态摘要**：reconcile 输出的 `[ASA STATUS]` 行已包含当前阶段和活跃任务
 4. 确认 meta.phase 和 activeTask

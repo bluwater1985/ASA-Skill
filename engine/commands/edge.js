@@ -1,6 +1,8 @@
 // engine/commands/edge.js — 依赖边管理
-const { loadMatrix, saveMatrix } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, loadAllNodes } = require('../lib/matrix.js');
 const { wouldCreateCycle } = require('../lib/graph.js');
+
+const VALID_TYPES = ['depends', 'extends', 'refines'];
 
 function run(args) {
   // args: ['add', 'REQ-001', 'ARCH-001', '--type', 'depends']
@@ -22,8 +24,25 @@ function run(args) {
   const typeIdx = args.indexOf('--type');
   const type = typeIdx >= 0 && typeIdx + 1 < args.length ? args[typeIdx + 1] : null;
 
+  // 校验 type 枚举
+  if (type && !VALID_TYPES.includes(type)) {
+    console.error(`[ASA] ❌ 无效边类型: ${type}，可用: ${VALID_TYPES.join(' | ')}`);
+    process.exit(1);
+  }
+
   const matrix = loadMatrix();
   if (!Array.isArray(matrix.edges)) matrix.edges = [];
+
+  // 校验节点存在
+  const nodes = loadAllNodes();
+  if (!nodes[from]) {
+    console.error(`[ASA] ❌ 节点 ${from} 不存在`);
+    process.exit(1);
+  }
+  if (!nodes[to]) {
+    console.error(`[ASA] ❌ 节点 ${to} 不存在`);
+    process.exit(1);
+  }
 
   if (sub === 'add') {
     const exists = matrix.edges.some(e => e.from === from && (e.to === to || (Array.isArray(e.to) && e.to.includes(to))));

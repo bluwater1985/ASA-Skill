@@ -59,7 +59,8 @@ function parseAsaYaml(text) {
     const content = trimmed.trimStart();
 
     if (content === '' || content.startsWith('#')) continue;
-    if (content.includes('\t')) {
+    // 检查原始行（trimStart 前），否则前导 Tab 会被误当作普通空格
+    if (trimmed.includes('\t')) {
       throw new Error(`YAML 解析错误: 不允许 Tab 缩进，请使用空格 (行: "${content.slice(0, 40)}")`);
     }
 
@@ -158,6 +159,47 @@ function parseAsaYaml(text) {
 
 // ── 序列化 ──
 
+// 序列化数组（不含 key 行，只输出 `- item` 项），用于顶层与嵌套数组
+function stringifyAsaArray(arr, indent) {
+  const pad = '  '.repeat(indent);
+  let out = '';
+  for (const item of arr) {
+    if (typeof item === 'object' && item !== null) {
+      const entries = Object.entries(item);
+      if (entries.length === 0) {
+        out += `${pad}-\n`;
+      } else {
+        const [firstKey, firstVal] = entries[0];
+        if (typeof firstVal === 'object' && firstVal !== null && !Array.isArray(firstVal)) {
+          out += `${pad}- ${firstKey}:\n`;
+          out += stringifyAsaYaml(firstVal, indent + 1);
+        } else if (Array.isArray(firstVal)) {
+          out += `${pad}- ${firstKey}:\n`;
+          out += stringifyAsaArray(firstVal, indent + 1);
+        } else {
+          out += `${pad}- ${firstKey}: ${stringifyScalar(firstVal)}\n`;
+        }
+        // 其余键（包含嵌套数组/对象）
+        for (let i = 1; i < entries.length; i++) {
+          const [k, v] = entries[i];
+          if (Array.isArray(v)) {
+            out += `${pad}  ${k}:\n`;
+            out += stringifyAsaArray(v, indent + 2);
+          } else if (typeof v === 'object' && v !== null) {
+            out += `${pad}  ${k}:\n`;
+            out += stringifyAsaYaml(v, indent + 2);
+          } else {
+            out += `${pad}  ${k}: ${stringifyScalar(v)}\n`;
+          }
+        }
+      }
+    } else {
+      out += `${pad}- ${stringifyScalar(item)}\n`;
+    }
+  }
+  return out;
+}
+
 function stringifyAsaYaml(obj, indent = 0) {
   const pad = '  '.repeat(indent);
   let out = '';
@@ -173,37 +215,7 @@ function stringifyAsaYaml(obj, indent = 0) {
         continue;
       }
       out += `${pad}${key}:\n`;
-      for (const item of value) {
-        if (typeof item === 'object' && item !== null) {
-          const entries = Object.entries(item);
-          if (entries.length === 0) {
-            out += `${pad}  -\n`;
-          } else {
-            const [firstKey, firstVal] = entries[0];
-            if (typeof firstVal === 'object' && firstVal !== null && !Array.isArray(firstVal)) {
-              out += `${pad}  - ${firstKey}:\n`;
-              out += stringifyAsaYaml(firstVal, indent + 3);
-            } else {
-              out += `${pad}  - ${firstKey}: ${stringifyScalar(firstVal)}\n`;
-            }
-            const innerPad = pad + '    ';
-            for (let i = 1; i < entries.length; i++) {
-              const [k, v] = entries[i];
-              if (Array.isArray(v)) {
-                out += `${innerPad}${k}:\n`;
-                out += stringifyAsaYaml(v, indent + 3);
-              } else if (typeof v === 'object' && v !== null) {
-                out += `${innerPad}${k}:\n`;
-                out += stringifyAsaYaml(v, indent + 3);
-              } else {
-                out += `${innerPad}${k}: ${stringifyScalar(v)}\n`;
-              }
-            }
-          }
-        } else {
-          out += `${pad}  - ${stringifyScalar(item)}\n`;
-        }
-      }
+      out += stringifyAsaArray(value, indent + 1);
     } else if (typeof value === 'object' && value !== null) {
       out += `${pad}${key}:\n`;
       out += stringifyAsaYaml(value, indent + 1);

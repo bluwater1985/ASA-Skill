@@ -13,11 +13,12 @@ const homedir = os.homedir();
 const isWindows = process.platform === 'win32';
 
 // 检测可用的 AI 客户端
+const NULL_DEV = isWindows ? 'nul' : '/dev/null';
 const hasClaude = (() => {
-  try { return !!process.env.CLAUDE_PROJECT_DIR || execSync('which claude 2>/dev/null || where claude 2>nul', { stdio: 'ignore' }) && true; } catch { return false; }
+  try { return !!process.env.CLAUDE_PROJECT_DIR || execSync(`which claude 2>${NULL_DEV} || where claude 2>${NULL_DEV}`, { stdio: 'ignore' }) && true; } catch { return false; }
 })();
 const hasGemini = (() => {
-  try { return execSync('which gemini 2>/dev/null || where gemini 2>nul', { stdio: 'ignore' }) && true; } catch { return false; }
+  try { return execSync(`which gemini 2>${NULL_DEV} || where gemini 2>${NULL_DEV}`, { stdio: 'ignore' }) && true; } catch { return false; }
 })();
 
 let client = args[0];

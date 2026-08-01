@@ -4,6 +4,7 @@
 set -e
 
 TIER="${1:-tier2}"
+PROJECT_NAME="$(basename "$(pwd)")"
 echo "🚀 ASA v3 初始化 — $TIER"
 
 mkdir -p .asa/nodes/requirements .asa/nodes/architecture .asa/nodes/tasks
@@ -13,7 +14,7 @@ mkdir -p .asa/hooks
 if [ ! -f .asa/matrix.yaml ]; then
   cat > .asa/matrix.yaml << YAML
 meta:
-  project: "__PROJECT__"
+  project: "${PROJECT_NAME}"
   phase: "discovery"
   schemaVersion: 2
   docsExpectedDigest: "sha256:empty"
@@ -34,12 +35,12 @@ if [ -f "$HOME/.asa/index.js" ]; then
 fi
 if [ -d "$HOME/.asa/commands" ]; then
   mkdir -p .asa/commands
-  cp "$HOME/.asa/commands/"*.js .asa/commands/ 2>/dev/null
+  cp "$HOME/.asa/commands/"*.js .asa/commands/ 2>/dev/null || true
   echo "✅ .asa/commands/"
 fi
 if [ -d "$HOME/.asa/lib" ]; then
   mkdir -p .asa/lib
-  cp "$HOME/.asa/lib/"*.js .asa/lib/ 2>/dev/null
+  cp "$HOME/.asa/lib/"*.js .asa/lib/ 2>/dev/null || true
   echo "✅ .asa/lib/"
 fi
 
@@ -77,7 +78,7 @@ if [ "$TIER" != "tier1" ]; then
           {
             "name": "asa-check-work-order",
             "type": "command",
-            "command": "node $(pwd)/.asa/hooks/check-work-order.js",
+            "command": "node \"$(pwd)/.asa/hooks/check-work-order.js\"",
             "timeout": 5000,
             "description": "ASA: 状态拦截"
           }
@@ -91,7 +92,7 @@ if [ "$TIER" != "tier1" ]; then
           {
             "name": "asa-validate-yaml",
             "type": "command",
-            "command": "node $(pwd)/.asa/hooks/validate-yaml.js",
+            "command": "node \"$(pwd)/.asa/hooks/validate-yaml.js\"",
             "timeout": 5000,
             "description": "ASA: YAML 校验"
           }

@@ -40,6 +40,7 @@ if (!fs.existsSync(matrixPath)) {
   const matrixYaml = `meta:
   project: "${projectName}"
   phase: "discovery"
+  schemaVersion: 2
   docsExpectedDigest: "sha256:empty"
   docsActualDigest: "sha256:empty"
 risks: []
@@ -95,6 +96,9 @@ if (fs.existsSync(engineSrc)) {
       fs.copyFileSync(path.join(srcDir, f), path.join(destDir, f));
     }
     engineUpdated++;
+  } else if (fs.existsSync(path.join(homeAsa, 'index.js'))) {
+    // 引擎存在但缺 commands/lib → 旧版引擎，提示重跑 install
+    console.warn(`⚠️  ~/.asa/${dir}/ 缺失：当前是旧版引擎。请重新运行 node install.js 更新全局引擎。`);
   }
 });
 
@@ -115,7 +119,7 @@ if (tier !== 'tier1') {
       group: 'BeforeTool',
       def: {
         name: 'asa-check-work-order', type: 'command',
-        command: 'node ' + path.resolve(process.cwd(), '.asa/hooks/check-work-order.js'),
+        command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/check-work-order.js') + '"',
         timeout: 5000, description: 'ASA: 无活跃 Task 时阻止修改'
       }
     },
@@ -124,7 +128,7 @@ if (tier !== 'tier1') {
       group: 'AfterTool',
       def: {
         name: 'asa-validate-yaml', type: 'command',
-        command: 'node ' + path.resolve(process.cwd(), '.asa/hooks/validate-yaml.js'),
+        command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/validate-yaml.js') + '"',
         timeout: 5000, description: 'ASA: 写入后校验 YAML'
       }
     }
@@ -144,7 +148,9 @@ if (tier !== 'tier1') {
 
   // 对每个 ASA Hook：按 name 查找更新，不存在则追加
   for (const [, cfg] of Object.entries(ASA_HOOKS)) {
-    const group = settings.hooks[cfg.group] || [];
+    // 先落位 group 数组，避免缺键时 push 到游离数组导致 hook 丢弃
+    if (!settings.hooks[cfg.group]) settings.hooks[cfg.group] = [];
+    const group = settings.hooks[cfg.group];
     const existing = group.find(g => g.hooks?.some(h => h.name === cfg.def.name));
     if (existing) {
       // 更新已有 Hook 的 command 路径

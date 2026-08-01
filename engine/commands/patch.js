@@ -10,6 +10,11 @@ function run() {
   const matrix = loadMatrix();
   if (matrix.meta.docsExpectedDigest === matrix.meta.docsActualDigest) return;
 
+  if (!fs.existsSync(DOCS_DIR)) {
+    console.log('[ASA] docs/ 目录不存在，跳过反向同步');
+    return;
+  }
+
   console.log('[ASA] 检测到人类直接修改了 docs/，启动定向 Patch 反向同步...');
   const mdFiles = fs.readdirSync(DOCS_DIR).filter(f => f.endsWith('.md'));
   const nodes = loadAllNodes();

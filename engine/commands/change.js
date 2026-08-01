@@ -23,7 +23,13 @@ function run(id) {
   // 创建快照备份
   const backupDir = path.join(process.cwd(), '.asa/backups');
   fs.mkdirSync(backupDir, { recursive: true });
-  const backupPath = path.join(backupDir, `${id}.${Date.now()}.yaml`);
+  // 同毫秒冲突时追加计数后缀
+  const ts = Date.now();
+  let backupPath = path.join(backupDir, `${id}.${ts}.yaml`);
+  let n = 1;
+  while (fs.existsSync(backupPath)) {
+    backupPath = path.join(backupDir, `${id}.${ts}-${n++}.yaml`);
+  }
   fs.copyFileSync(filePath, backupPath);
 
   console.log(`[ASA] ${id} 准备变更`);

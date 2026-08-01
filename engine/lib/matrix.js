@@ -28,7 +28,8 @@ function calculateDocsDigest() {
   const hash = crypto.createHash('sha256');
   for (const file of files) {
     const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8').replace(/\r\n/g, '\n');
-    hash.update(content);
+    // 文件名也参与哈希，重命名文件会被篡改检测捕获
+    hash.update(file + '\0' + content);
   }
   return `sha256:${hash.digest('hex')}`;
 }
@@ -54,7 +55,31 @@ function atomicWriteYaml(filePath, data) {
   fs.renameSync(tmpPath, filePath);
 }
 
+// 从 nodes/ 重建 matrix 的 requirements/architecture/tasks 摘要索引
+function rebuildSummary(matrix, nodes) {
+  const catMap = { requirements: 'requirements', architecture: 'architecture', tasks: 'tasks' };
+  matrix.requirements = matrix.requirements || {};
+  matrix.architecture = matrix.architecture || {};
+  matrix.tasks = matrix.tasks || {};
+
+  // 清空后重建（以 nodes/ 为准）
+  matrix.requirements = {};
+  matrix.architecture = {};
+  matrix.tasks = {};
+
+  for (const [id, node] of Object.entries(nodes)) {
+    const cat = node.__category;
+    if (!catMap[cat]) continue;
+    const summary = {
+      title: node.title || '',
+      status: node.status || 'pending',
+    };
+    if (cat === 'tasks') summary.file = `.asa/nodes/tasks/${id}.yaml`;
+    matrix[catMap[cat]][id] = summary;
+  }
+}
+
 module.exports = {
   MATRIX_PATH, DOCS_DIR,
-  loadMatrix, saveMatrix, calculateDocsDigest, loadAllNodes, atomicWriteYaml,
+  loadMatrix, saveMatrix, calculateDocsDigest, loadAllNodes, atomicWriteYaml, rebuildSummary,
 };

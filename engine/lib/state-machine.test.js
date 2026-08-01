@@ -24,6 +24,16 @@ describe('REQ state machine', () => {
     assert.equal(r.valid, false);
   });
 
+  it('allows proposed → deprecated', () => {
+    const r = validateTransition('REQ-001', 'proposed', 'deprecated');
+    assert.equal(r.valid, true);
+  });
+
+  it('allows modified → deprecated', () => {
+    const r = validateTransition('REQ-001', 'modified', 'deprecated');
+    assert.equal(r.valid, true);
+  });
+
   it('rejects completed → in_progress', () => {
     const r = validateTransition('REQ-001', 'completed', 'in_progress');
     assert.equal(r.valid, false);
@@ -63,7 +73,7 @@ describe('TASK state machine', () => {
 describe('getAllowedTransitions', () => {
   it('returns correct options for REQ proposed', () => {
     const opts = getAllowedTransitions('REQ-001', 'proposed');
-    assert.deepEqual(opts, ['approved', 'rejected']);
+    assert.deepEqual(opts, ['approved', 'rejected', 'deprecated']);
   });
 
   it('returns empty for terminal state', () => {

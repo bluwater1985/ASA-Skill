@@ -362,6 +362,23 @@ describe('review findings', () => {
     assert.equal(result.key, '');
   });
 
+  it('nested array as non-first key survives round-trip', () => {
+    const obj = {
+      pendingPropagation: [{
+        changeVersion: 2,
+        status: 'pending',
+        affectedNodes: [
+          { id: 'TASK-001', action: { type: 'set_status', value: 'draft' } }
+        ]
+      }]
+    };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.equal(Array.isArray(back.pendingPropagation[0].affectedNodes), true);
+    assert.equal(back.pendingPropagation[0].affectedNodes[0].id, 'TASK-001');
+    assert.equal(back.pendingPropagation[0].affectedNodes[0].action.type, 'set_status');
+  });
+
   it('inline array with quoted commas', () => {
     const result = parseAsaYaml('items: [a, "b, c", d]');
     assert.deepEqual(result.items, ['a', 'b, c', 'd']);

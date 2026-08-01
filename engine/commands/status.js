@@ -1,4 +1,5 @@
 // engine/commands/status.js — 状态机推进
+const path = require('path');
 const { loadAllNodes, atomicWriteYaml } = require('../lib/matrix.js');
 const { validateTransition } = require('../lib/state-machine.js');
 const { appendChangeLog } = require('../lib/changelog.js');
