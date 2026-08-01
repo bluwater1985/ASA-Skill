@@ -1,10 +1,9 @@
 // engine/commands/patch.js — docs → 节点反向同步
 const path = require('path');
 const fs = require('fs');
-const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, atomicWriteYaml, docsDir } = require('../lib/matrix.js');
 const { appendChangeLog } = require('../lib/changelog.js');
 
-const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 function run() {
   const matrix = loadMatrix();
@@ -12,19 +11,19 @@ function run() {
   const physicalDigest = calculateDocsDigest();
   if (physicalDigest === matrix.meta?.docsExpectedDigest) return;
 
-  if (!fs.existsSync(DOCS_DIR)) {
+  if (!fs.existsSync(docsDir())) {
     console.log('[ASA] docs/ 目录不存在，跳过反向同步');
     return;
   }
 
   console.log('[ASA] 检测到人类直接修改了 docs/，启动定向 Patch 反向同步...');
-  const mdFiles = fs.readdirSync(DOCS_DIR).filter(f => f.endsWith('.md'));
+  const mdFiles = fs.readdirSync(docsDir()).filter(f => f.endsWith('.md'));
   const nodes = loadAllNodes();
   let hasChanges = false;
 
   for (const file of mdFiles) {
     // 归一化换行符，避免 CRLF（Windows）导致字段正则 \n 匹配失败
-    const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8').replace(/\r\n/g, '\n');
+    const content = fs.readFileSync(path.join(docsDir(), file), 'utf-8').replace(/\r\n/g, '\n');
     for (const [id, node] of Object.entries(nodes)) {
       if (node.__category !== 'requirements') continue;
       let criteria = null;

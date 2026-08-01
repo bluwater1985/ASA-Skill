@@ -4,15 +4,17 @@ const path = require('path');
 const crypto = require('crypto');
 const { parseAsaYaml, stringifyAsaYaml } = require('./yaml.js');
 
-const MATRIX_PATH = path.join(process.cwd(), '.asa/matrix.yaml');
-const DOCS_DIR = path.join(process.cwd(), 'docs');
+// 路径在调用时计算（而非模块加载时），支持 cwd 变化的场景（如测试多沙箱）
+function matrixPath() { return path.join(process.cwd(), '.asa/matrix.yaml'); }
+function docsDir() { return path.join(process.cwd(), 'docs'); }
 
 function loadMatrix() {
-  if (!fs.existsSync(MATRIX_PATH)) {
+  const mp = matrixPath();
+  if (!fs.existsSync(mp)) {
     throw new Error('找不到 .asa/matrix.yaml 文件');
   }
   try {
-    return parseAsaYaml(fs.readFileSync(MATRIX_PATH, 'utf-8'));
+    return parseAsaYaml(fs.readFileSync(mp, 'utf-8'));
   } catch (e) {
     throw new Error(`.asa/matrix.yaml 解析失败: ${e.message}。请修复该文件，或运行 reconcile（会从骨架重建，edges 需备份恢复）`);
   }
@@ -20,19 +22,21 @@ function loadMatrix() {
 
 function saveMatrix(matrix) {
   // atomic write: 先写 .tmp，再 rename
-  const tmpPath = MATRIX_PATH + '.tmp';
+  const mp = matrixPath();
+  const tmpPath = mp + '.tmp';
   fs.writeFileSync(tmpPath, stringifyAsaYaml(matrix), 'utf-8');
-  fs.renameSync(tmpPath, MATRIX_PATH);
+  fs.renameSync(tmpPath, mp);
 }
 
 function calculateDocsDigest() {
-  if (!fs.existsSync(DOCS_DIR)) return 'sha256:empty';
-  const files = fs.readdirSync(DOCS_DIR).filter(f => f.endsWith('.md')).sort();
+  const dd = docsDir();
+  if (!fs.existsSync(dd)) return 'sha256:empty';
+  const files = fs.readdirSync(dd).filter(f => f.endsWith('.md')).sort();
   // 空目录与骨架哨兵 "sha256:empty" 一致
   if (files.length === 0) return 'sha256:empty';
   const hash = crypto.createHash('sha256');
   for (const file of files) {
-    const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8').replace(/\r\n/g, '\n');
+    const content = fs.readFileSync(path.join(dd, file), 'utf-8').replace(/\r\n/g, '\n');
     // 文件名也参与哈希，重命名文件会被篡改检测捕获
     hash.update(file + '\0' + content);
   }
@@ -122,6 +126,6 @@ function rebuildSummary(matrix, nodes) {
 }
 
 module.exports = {
-  MATRIX_PATH, DOCS_DIR,
+  matrixPath, docsDir,
   loadMatrix, saveMatrix, calculateDocsDigest, calculateNodesDigest, loadAllNodes, atomicWriteYaml, rebuildSummary,
 };

@@ -1,17 +1,16 @@
 // engine/commands/compile.js — 节点 → docs 编译
 const path = require('path');
 const fs = require('fs');
-const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest } = require('../lib/matrix.js');
+const { loadMatrix, saveMatrix, loadAllNodes, calculateDocsDigest, docsDir } = require('../lib/matrix.js');
 
-const DOCS_DIR = path.join(process.cwd(), 'docs');
 
 function run() {
   const matrix = loadMatrix();
   const nodes = loadAllNodes();
-  if (!fs.existsSync(DOCS_DIR)) fs.mkdirSync(DOCS_DIR);
+  if (!fs.existsSync(docsDir())) fs.mkdirSync(docsDir());
 
   // 提取现有 docs 中 ASA-NODE 块之外的「用户手写内容」，编译时保留
-  const docsPath = path.join(DOCS_DIR, '01-requirements.md');
+  const docsPath = path.join(docsDir(), '01-requirements.md');
   let userHeader = '';
   let userFooter = '';
   if (fs.existsSync(docsPath)) {
