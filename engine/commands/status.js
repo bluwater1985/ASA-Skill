@@ -48,6 +48,7 @@ function run(id, newStatus) {
   } catch (e) { /* 摘要同步失败不影响主操作 */ }
 
   console.log(`[ASA] ✅ ${id}: ${oldStatus} → ${newStatus} (v${version})`);
+  console.log(`[ASA] 提示: 运行 node .asa/index.js compile 重新生成 docs`);
 }
 
 module.exports = { run };

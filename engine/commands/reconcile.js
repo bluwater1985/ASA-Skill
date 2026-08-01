@@ -70,17 +70,8 @@ function run() {
   rebuildSummary(matrix, nodes);
   saveMatrix(matrix);
 
-  // TASK 状态一致性修复（原有逻辑）
+  // 摘要已由 rebuildSummary 从 nodes 重建，无需逐一修复
   let hasChanges = false;
-  if (matrix.tasks) {
-    for (const [taskId, summary] of Object.entries(matrix.tasks)) {
-      if (nodes[taskId] && nodes[taskId].status !== summary.status) {
-        console.log(`[ASA] 🔄 断裂事务修复: ${taskId} [${summary.status}] → [${nodes[taskId].status}]`);
-        matrix.tasks[taskId].status = nodes[taskId].status;
-        hasChanges = true;
-      }
-    }
-  }
 
   const currentDigest = calculateDocsDigest();
   if (matrix.meta?.docsActualDigest !== currentDigest) {

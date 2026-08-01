@@ -12,6 +12,7 @@ function escapeDq(s) {
     if (ch === '\\') out += '\\\\';
     else if (ch === '"') out += '\\"';
     else if (ch === '\n') out += '\\n';
+    else if (ch === '\t') out += '\\t';
     else out += ch;
   }
   return out;
@@ -24,6 +25,7 @@ function unescapeDq(s) {
     if (s[i] === '\\' && i + 1 < s.length) {
       const c = s[i + 1];
       if (c === 'n') { out += '\n'; i++; }
+      else if (c === 't') { out += '\t'; i++; }
       else if (c === '\\') { out += '\\'; i++; }
       else if (c === '"') { out += '"'; i++; }
       else out += s[i]; // 未知转义，保留反斜杠
@@ -70,7 +72,7 @@ function stringifyScalar(v) {
   if (typeof v === 'string') {
     // 需要引号包裹的情况：内容含特殊字符、换行，或可能被 parseScalar 重新解释
     const needsQuoting = v.includes(': ') || v.includes('#') || v.startsWith('-') || v === '' ||
-      v.includes('\n') || v.includes('\\') || v.includes("'") || v.includes('"') ||
+      v.includes('\n') || v.includes('\t') || v.includes('\\') || v.includes("'") || v.includes('"') ||
       /^-?\d+(\.\d+)?$/.test(v) || v === 'true' || v === 'false' || v === 'null' || v === '~';
     if (needsQuoting) return `"${escapeDq(v)}"`;
     return v;
@@ -94,8 +96,8 @@ function parseAsaYaml(text) {
     const content = trimmed.trimStart();
 
     if (content === '' || content.startsWith('#')) continue;
-    // 检查原始行（trimStart 前），否则前导 Tab 会被误当作普通空格
-    if (trimmed.includes('\t')) {
+    // 只拒绝行首缩进的 Tab（标准 YAML 规则）；引号串内部的 Tab 由转义处理
+    if (/^\s*\t/.test(trimmed)) {
       throw new Error(`YAML 解析错误: 不允许 Tab 缩进，请使用空格 (行: "${content.slice(0, 40)}")`);
     }
 

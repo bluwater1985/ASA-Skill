@@ -66,7 +66,7 @@ function run(id) {
     // 校验 cancelled 转换：completed/verified 等终态不允许取消
     const trans = validateTransition(d.id, oldStatus, 'cancelled');
     if (!trans.valid) {
-      console.log(`  [INFO] ${d.id}: 状态 ${oldStatus} 不允许自动取消（${trans.error.split('）')[0]}），保留人工评估`);
+      console.log(`  [INFO] ${d.id}: 状态 ${oldStatus} 不允许自动取消，保留人工评估`);
       continue;
     }
 

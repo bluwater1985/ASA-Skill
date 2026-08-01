@@ -29,6 +29,10 @@ function executeAction(node, action) {
     }
     case 'append_to_array': {
       if (!target) return 'failed';
+      if (value === undefined || value === null) {
+        console.log(`  ✗ ${node.id}: append_to_array 缺少 value，拒绝`);
+        return 'failed';
+      }
       // 目标已存在且非数组 → 拒绝，避免静默覆盖原值
       if (node[target] !== undefined && !Array.isArray(node[target])) {
         console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，append 拒绝（当前值: ${JSON.stringify(node[target])}）`);
@@ -43,6 +47,10 @@ function executeAction(node, action) {
     }
     case 'set_field': {
       if (!target) return 'failed';
+      if (value === undefined || value === null) {
+        console.log(`  ✗ ${node.id}: set_field 缺少 value，拒绝`);
+        return 'failed';
+      }
       if (node[target] === value) return 'skipped'; // 幂等
       node[target] = value;
       appendChangeLog(node, 'modified', `传播动作: set ${target} = "${value}"`, 'system');
@@ -51,8 +59,12 @@ function executeAction(node, action) {
     }
     case 'replace_in_array': {
       if (!target) return 'failed';
-      const old = value?.old;
-      const neu = value?.new;
+      if (typeof value !== 'object' || value === null || value.old === undefined || value.new === undefined) {
+        console.log(`  ✗ ${node.id}: replace_in_array 的 value 必须是 {old, new}，拒绝`);
+        return 'failed';
+      }
+      const old = value.old;
+      const neu = value.new;
       // 目标已存在且非数组 → 拒绝
       if (node[target] !== undefined && !Array.isArray(node[target])) {
         console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，replace 拒绝`);
@@ -181,6 +193,14 @@ function run(startId) {
   const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
   console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
   console.log(`  ✓ 重新 compile...`);
+
+  // 更新 matrix 摘要索引（重建），避免状态陈旧
+  try {
+    const { rebuildSummary, saveMatrix: saveM } = require('../lib/matrix.js');
+    const m = loadMatrix();
+    rebuildSummary(m, loadAllNodes());
+    saveM(m);
+  } catch (e) { /* 摘要重建失败不影响主流程 */ }
 
   try {
     const { run: compile } = require('./compile.js');

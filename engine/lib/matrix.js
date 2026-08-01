@@ -25,6 +25,8 @@ function saveMatrix(matrix) {
 function calculateDocsDigest() {
   if (!fs.existsSync(DOCS_DIR)) return 'sha256:empty';
   const files = fs.readdirSync(DOCS_DIR).filter(f => f.endsWith('.md')).sort();
+  // 空目录与骨架哨兵 "sha256:empty" 一致
+  if (files.length === 0) return 'sha256:empty';
   const hash = crypto.createHash('sha256');
   for (const file of files) {
     const content = fs.readFileSync(path.join(DOCS_DIR, file), 'utf-8').replace(/\r\n/g, '\n');
@@ -61,11 +63,9 @@ function loadAllNodes() {
 }
 
 function atomicWriteYaml(filePath, data) {
-  // 剔除内部字段（__ 前缀），防止 __category 等泄漏进节点文件
+  // 仅剔除内部已知字段（__category），避免误删用户合法 __ 前缀字段
   const clean = { ...data };
-  for (const k of Object.keys(clean)) {
-    if (k.startsWith('__')) delete clean[k];
-  }
+  delete clean.__category;
   const tmpPath = filePath + '.tmp';
   fs.writeFileSync(tmpPath, stringifyAsaYaml(clean), 'utf-8');
   fs.renameSync(tmpPath, filePath);

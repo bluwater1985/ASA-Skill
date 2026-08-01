@@ -41,15 +41,33 @@ function run(cmd, id) {
 
   if (PROPAGATES[type]) {
     console.log(`  编辑完成后，请按以下步骤驱动传播链:`);
-    console.log(`    1. 在 ${id}.yaml 中追加 pendingPropagation 条目（使用多行嵌套格式）:`);
+    console.log(`    1. 在 ${id}.yaml 的 pendingPropagation 中新增条目（若已有则合并，勿重复键）。`);
+    console.log(`       各动作类型完整示例（value/target 均必填）:`);
     console.log(`       pendingPropagation:`);
-    console.log(`         - changeVersion: <当前版本+1>`);
+    console.log(`         - changeVersion: <当前版本+1>  # 同时将节点 version 递增 +1，并追加 changeLog 记录`);
     console.log(`           status: pending`);
     console.log(`           affectedNodes:`);
     console.log(`             - id: <受影响节点ID>`);
     console.log(`               action:`);
-    console.log(`                 type: set_status   # 或 append_to_array / set_field / replace_in_array`);
-    console.log(`                 value: <目标值>`);
+    console.log(`                 type: set_status`);
+    console.log(`                 value: <目标状态>`);
+    console.log(`             - id: <受影响节点ID>`);
+    console.log(`               action:`);
+    console.log(`                 type: append_to_array`);
+    console.log(`                 target: <数组字段名>`);
+    console.log(`                 value: <要追加的值>`);
+    console.log(`             - id: <受影响节点ID>`);
+    console.log(`               action:`);
+    console.log(`                 type: set_field`);
+    console.log(`                 target: <字段名>`);
+    console.log(`                 value: <新值>`);
+    console.log(`             - id: <受影响节点ID>`);
+    console.log(`               action:`);
+    console.log(`                 type: replace_in_array`);
+    console.log(`                 target: <数组字段名>`);
+    console.log(`                 value:`);
+    console.log(`                   old: <旧值>`);
+    console.log(`                   new: <新值>`);
     console.log(`    2. node .asa/index.js impact ${id}   # 查看影响`);
     console.log(`    3. node .asa/index.js propagate ${id}  # 执行级联更新（幂等）`);
   } else {
