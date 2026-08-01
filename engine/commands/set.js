@@ -33,6 +33,13 @@ function run(what, value) {
       console.error(`[ASA] ❌ 任务 ${value} 不存在（可用节点: ${Object.keys(nodes).filter(n => n.startsWith('TASK-')).join(', ') || '无'}）`);
       process.exit(1);
     }
+    // 拒绝把终态任务设为活跃
+    const TERMINAL = ['completed', 'verified', 'cancelled'];
+    const taskStatus = nodes[value].status || 'pending';
+    if (TERMINAL.includes(taskStatus)) {
+      console.error(`[ASA] ❌ 任务 ${value} 已是终态（${taskStatus}），不能设为活跃`);
+      process.exit(1);
+    }
     matrix.meta.activeTask = value;
     saveMatrix(matrix);
     console.log(`[ASA] ✅ 活跃任务: ${value}`);

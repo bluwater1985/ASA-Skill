@@ -71,13 +71,19 @@ function updatePropagationStatus(node, changeVersion) {
 }
 
 /**
- * 清除已完成传播的 pendingPropagation 条目
+ * 清除已完成传播的 pendingPropagation 条目。
+ * 按条目对象身份清除（而非 changeVersion），避免同版本多个条目时误删 partial 条目。
  */
-function clearPendingPropagation(node, changeVersion) {
+function clearPendingPropagation(node, changeVersion, entryRef) {
   if (!node.pendingPropagation) return;
-  node.pendingPropagation = node.pendingPropagation.filter(
-    e => e.changeVersion !== changeVersion
-  );
+  if (entryRef) {
+    node.pendingPropagation = node.pendingPropagation.filter(e => e !== entryRef);
+  } else {
+    // 向后兼容：无 entryRef 时按 changeVersion 清除（仅当该版本只有一个条目时安全）
+    node.pendingPropagation = node.pendingPropagation.filter(
+      e => e.changeVersion !== changeVersion
+    );
+  }
 }
 
 /**

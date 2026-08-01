@@ -63,9 +63,10 @@ if (fs.existsSync(templateFile)) {
     fs.copyFileSync(templateFile, geminiMd);
     console.log('✅ GEMINI.md（新建）');
   } else if (forceFlag) {
-    // --force 模式：备份旧文件后重新生成
+    // --force 模式：备份旧文件后重新生成（时间戳到秒，避免同日覆盖）
     const now = new Date();
-    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const pad2 = n => String(n).padStart(2, '0');
+    const ts = `${now.getFullYear()}${pad2(now.getMonth()+1)}${pad2(now.getDate())}-${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`;
     const backup = `${geminiMd}.bak.${ts}`;
     fs.copyFileSync(geminiMd, backup);
     fs.copyFileSync(templateFile, geminiMd);

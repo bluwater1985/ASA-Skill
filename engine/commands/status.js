@@ -21,6 +21,13 @@ function run(id, newStatus) {
   const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
   const type = (id || '').split('-')[0];
   const oldStatus = node.status || INITIAL[type] || 'pending';
+
+  // 同状态自转换 → 幂等成功
+  if (oldStatus === newStatus) {
+    console.log(`[ASA] ℹ️ ${id} 已是 ${newStatus}，无需变更`);
+    return;
+  }
+
   const result = validateTransition(id, oldStatus, newStatus);
   if (!result.valid) {
     console.error(`[ASA] ❌ ${result.error}`);
@@ -48,7 +55,12 @@ function run(id, newStatus) {
   } catch (e) { /* 摘要同步失败不影响主操作 */ }
 
   console.log(`[ASA] ✅ ${id}: ${oldStatus} → ${newStatus} (v${version})`);
-  console.log(`[ASA] 提示: 运行 node .asa/index.js compile 重新生成 docs`);
+
+  // 自动重编译 docs，避免节点状态与 docs 不一致
+  try {
+    const { run: compile } = require('./compile.js');
+    compile();
+  } catch (e) { /* docs 编译失败不影响状态变更 */ }
 }
 
 module.exports = { run };

@@ -12,7 +12,13 @@ function loadMatrix() {
     console.error('[ASA] 错误: 找不到 .asa/matrix.yaml 文件');
     process.exit(1);
   }
-  return parseAsaYaml(fs.readFileSync(MATRIX_PATH, 'utf-8'));
+  try {
+    return parseAsaYaml(fs.readFileSync(MATRIX_PATH, 'utf-8'));
+  } catch (e) {
+    console.error(`[ASA] ❌ .asa/matrix.yaml 解析失败: ${e.message}`);
+    console.error('  请修复该文件，或将其重命名后运行 reconcile 从 nodes/ 重建');
+    process.exit(1);
+  }
 }
 
 function saveMatrix(matrix) {

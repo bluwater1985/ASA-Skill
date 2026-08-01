@@ -36,16 +36,27 @@ function unescapeDq(s) {
   return out;
 }
 
+// 引号感知剥离行尾注释：仅在引号外、且 # 前有空白时视为注释
+function stripInlineComment(s) {
+  let quote = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '#' && i > 0 && /\s/.test(s[i - 1])) {
+      return s.slice(0, i).trimEnd();
+    }
+  }
+  return s.trim();
+}
+
 function parseScalar(s) {
-  s = s.trim();
-  // 引号包裹 → 不剥离内联注释
+  // 先剥离引号外的行尾注释，再做引号/数组/对象判定
+  s = stripInlineComment(s);
   if (s.startsWith('"') && s.endsWith('"')) return unescapeDq(s.slice(1, -1));
   if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1);
-  // 未引号值 → 剥离内联注释（空格后 # 起始；#ff0000 这类无前置空格不剥离）
-  if (!s.startsWith('[') && !s.startsWith('{')) {
-    const commentIdx = s.indexOf(' #');
-    if (commentIdx >= 0) s = s.slice(0, commentIdx).trimEnd();
-  }
   if (s === '{}') return {};
   if (s.startsWith('[') && s.endsWith(']')) {
     const inner = s.slice(1, -1).trim();

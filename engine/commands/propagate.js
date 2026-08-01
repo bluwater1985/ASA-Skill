@@ -141,7 +141,7 @@ function run(startId) {
     }
 
     if (remaining.length === 0) {
-      clearPendingPropagation(source, entry.changeVersion);
+      clearPendingPropagation(source, entry.changeVersion, entry);
       console.log(`  ✓ 条目 v${entry.changeVersion} 全部完成，已清除`);
     } else {
       entry.status = 'partial';
@@ -150,8 +150,37 @@ function run(startId) {
     }
   }
 
-  // 源节点写回（pending 状态可能更新为 partial 或条目被清除）
-  writeNode(source);
+  // 有实际应用的动作时：源节点递增版本 + 记录 changelog（即使部分失败也要记录本次传播）
+  if (applied > 0) {
+    const oldVersion = source.version || 1;
+    source.version = oldVersion + 1;
+    if (!source.changeLog) source.changeLog = [];
+
+    // 仅 REQ 源节点自动置 modified（REQ 状态机存在该状态）
+    // ARCH/TASK 源节点不自动改状态，避免写入其状态机不存在的非法状态
+    const srcType = (startId || '').split('-')[0];
+    if (srcType === 'REQ') {
+      source.status = 'modified';
+      source.changeLog.push({
+        date: new Date().toISOString().split('T')[0],
+        type: 'modified',
+        version: source.version,
+        summary: `状态变更: 传播触发`,
+        by: 'system',
+      });
+    }
+    source.changeLog.push({
+      date: new Date().toISOString().split('T')[0],
+      type: 'propagation_done',
+      version: source.version,
+      summary: `传播完成: 应用了 ${applied} 个动作${failed > 0 ? `，${failed} 个失败待处理` : ''}`,
+      by: 'system',
+    });
+    writeNode(source);
+
+    const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
+    console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
+  }
 
   if (failed > 0) {
     console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
@@ -163,35 +192,6 @@ function run(startId) {
     return;
   }
 
-  // 有实际变更：源节点递增版本 + 记录 changelog
-  const oldVersion = source.version || 1;
-  source.version = oldVersion + 1;
-  if (!source.changeLog) source.changeLog = [];
-
-  // 仅 REQ 源节点自动置 modified（REQ 状态机存在该状态）
-  // ARCH/TASK 源节点不自动改状态，避免写入其状态机不存在的非法状态
-  const srcType = (startId || '').split('-')[0];
-  if (srcType === 'REQ') {
-    source.status = 'modified';
-    source.changeLog.push({
-      date: new Date().toISOString().split('T')[0],
-      type: 'modified',
-      version: source.version,
-      summary: `状态变更: 传播触发`,
-      by: 'system',
-    });
-  }
-  source.changeLog.push({
-    date: new Date().toISOString().split('T')[0],
-    type: 'propagation_done',
-    version: source.version,
-    summary: `传播完成: 应用了 ${applied} 个动作`,
-    by: 'system',
-  });
-  writeNode(source);
-
-  const statusMsg = srcType === 'REQ' ? `, status: modified` : `, status 不变`;
-  console.log(`  → ${startId}: v${oldVersion} → v${source.version}${statusMsg}`);
   console.log(`  ✓ 重新 compile...`);
 
   // 更新 matrix 摘要索引（重建），避免状态陈旧

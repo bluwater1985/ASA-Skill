@@ -44,7 +44,7 @@ function run(cmd, id) {
     console.log(`    1. 在 ${id}.yaml 的 pendingPropagation 中新增条目（若已有则合并，勿重复键）。`);
     console.log(`       各动作类型完整示例（value/target 均必填）:`);
     console.log(`       pendingPropagation:`);
-    console.log(`         - changeVersion: <当前版本+1>  # 同时将节点 version 递增 +1，并追加 changeLog 记录`);
+    console.log(`         - changeVersion: <当前版本+1>  # 版本递增由 propagate 自动完成，无需手改节点 version`);
     console.log(`           status: pending`);
     console.log(`           affectedNodes:`);
     console.log(`             - id: <受影响节点ID>`);

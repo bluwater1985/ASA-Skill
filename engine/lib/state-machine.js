@@ -76,7 +76,6 @@ function getAllowedTransitions(id, current) {
 
 module.exports = {
   TRANSITIONS,
-  getNodeType,
   validateTransition,
   getAllowedTransitions,
 };

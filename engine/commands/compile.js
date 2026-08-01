@@ -10,7 +10,29 @@ function run() {
   const nodes = loadAllNodes();
   if (!fs.existsSync(DOCS_DIR)) fs.mkdirSync(DOCS_DIR);
 
-  let reqContent = '# 项目核心需求资产清单\n\n';
+  // 提取现有 docs 中 ASA-NODE 块之外的「用户手写内容」，编译时保留
+  const docsPath = path.join(DOCS_DIR, '01-requirements.md');
+  let userHeader = '';
+  let userFooter = '';
+  if (fs.existsSync(docsPath)) {
+    const old = fs.readFileSync(docsPath, 'utf-8');
+    const firstNode = old.indexOf('<!-- ASA-NODE:');
+    const lastEnd = old.lastIndexOf('<!-- ASA-NODE-END -->');
+    if (firstNode > 0) userHeader = old.slice(0, firstNode).trimEnd();
+    if (lastEnd >= 0) {
+      // 只保留 ASA-COMPILED 锚点之后的用户手写内容
+      const anchorIdx = old.indexOf('<!-- ASA-COMPILED:', lastEnd);
+      if (anchorIdx >= 0) {
+        const nl = old.indexOf('\n', anchorIdx);
+        if (nl >= 0) {
+          const footer = old.slice(nl + 1).trim();
+          if (footer) userFooter = footer;
+        }
+      }
+    }
+  }
+
+  let reqContent = userHeader ? `${userHeader}\n\n---\n\n` : '# 项目核心需求资产清单\n\n';
   for (const [id, node] of Object.entries(nodes)) {
     if (node.__category !== 'requirements') continue;
     reqContent += `<!-- ASA-NODE: ${id} -->\n`;
@@ -33,7 +55,10 @@ function run() {
   reqContent += `<!-- ASA-VERSION: ${maxVersion} -->\n`;
   reqContent += `<!-- ASA-COMPILED: ${new Date().toISOString().split('T')[0]} -->\n`;
 
-  fs.writeFileSync(path.join(DOCS_DIR, '01-requirements.md'), reqContent.trim(), 'utf-8');
+  // 追加用户手写尾部内容（如有）
+  if (userFooter) reqContent += `\n${userFooter}\n`;
+
+  fs.writeFileSync(docsPath, reqContent.trim(), 'utf-8');
   console.log('[ASA] Docs 编译完成。');
 
   const newDigest = calculateDocsDigest();
