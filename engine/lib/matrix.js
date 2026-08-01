@@ -42,6 +42,25 @@ function calculateDocsDigest() {
   return `sha256:${hash.digest('hex')}`;
 }
 
+function calculateNodesDigest() {
+  const nodesDir = path.join(process.cwd(), '.asa/nodes');
+  if (!fs.existsSync(nodesDir)) return 'sha256:empty';
+  const files = [];
+  for (const cat of ['requirements', 'architecture', 'tasks']) {
+    const dir = path.join(nodesDir, cat);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.yaml')).sort()) {
+      files.push(`${cat}/${f}`);
+    }
+  }
+  if (files.length === 0) return 'sha256:empty';
+  const hash = crypto.createHash('sha256');
+  for (const rel of files.sort()) {
+    hash.update(rel + '\0' + fs.readFileSync(path.join(nodesDir, rel), 'utf-8'));
+  }
+  return `sha256:${hash.digest('hex')}`;
+}
+
 function loadAllNodes() {
   const nodes = {};
   const categories = ['requirements', 'architecture', 'tasks'];
@@ -107,5 +126,5 @@ function rebuildSummary(matrix, nodes) {
 
 module.exports = {
   MATRIX_PATH, DOCS_DIR,
-  loadMatrix, saveMatrix, calculateDocsDigest, loadAllNodes, atomicWriteYaml, rebuildSummary,
+  loadMatrix, saveMatrix, calculateDocsDigest, calculateNodesDigest, loadAllNodes, atomicWriteYaml, rebuildSummary,
 };

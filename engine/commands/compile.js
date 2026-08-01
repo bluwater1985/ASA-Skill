@@ -23,7 +23,7 @@ function run() {
       userHeader = old.trim();
       // 但剔除上次编译的 --- 分隔 + ASA-VERSION/ASA-COMPILED 锚点块，避免累积
       userHeader = userHeader
-        .replace(/\n?---\s*\n?<!-- ASA-VERSION:[^\n]*\n<!-- ASA-COMPILED:[^\n]*[\s\S]*$/, '')
+        .replace(/(?:\n?---\s*\n?)?<!-- ASA-VERSION:[^\n]*\n<!-- ASA-COMPILED:[^\n]*[\s\S]*$/, '')
         .trimEnd();
     } else if (firstNode > 0) {
       userHeader = old.slice(0, firstNode).trimEnd();
@@ -31,14 +31,23 @@ function run() {
       userHeader = userHeader.replace(/\n?---\s*$/, '').trimEnd();
     }
     if (lastEnd >= 0) {
-      // 只保留 ASA-COMPILED 锚点之后的用户手写内容
+      // 优先保留 ASA-COMPILED 锚点之后的用户手写内容
       const anchorIdx = old.indexOf('<!-- ASA-COMPILED:', lastEnd);
+      let footerStart = -1;
       if (anchorIdx >= 0) {
         const nl = old.indexOf('\n', anchorIdx);
-        if (nl >= 0) {
-          const footer = old.slice(nl + 1).trim();
-          if (footer) userFooter = footer;
-        }
+        if (nl >= 0) footerStart = nl + 1;
+      } else {
+        // 锚点缺失（可能被人工删除）→ 降级为取最后一个 ASA-NODE-END 之后的内容
+        const endOfBlock = lastEnd + '<!-- ASA-NODE-END -->'.length;
+        const afterBlock = old.slice(endOfBlock);
+        // 跳过 --- 分隔线与可能残留的 VERSION 锚点
+        const m = afterBlock.match(/\n?---\s*\n?(?:<!-- ASA-VERSION:[^\n]*\n)?([\s\S]*)$/);
+        if (m && m[1].trim()) footerStart = endOfBlock;
+      }
+      if (footerStart >= 0) {
+        const footer = old.slice(footerStart).trim();
+        if (footer) userFooter = footer;
       }
     }
   }
@@ -77,10 +86,17 @@ function run() {
   fs.writeFileSync(docsPath, reqContent.trim(), 'utf-8');
   console.log('[ASA] Docs 编译完成。');
 
+  // 同步重建 matrix 摘要 + 更新 digest（一次 saveMatrix）
+  try {
+    const { rebuildSummary } = require('../lib/matrix.js');
+    rebuildSummary(matrix, nodes);
+  } catch (e) { /* 摘要重建失败不影响主流程 */ }
+
   const newDigest = calculateDocsDigest();
   matrix.meta = matrix.meta || {};
   matrix.meta.docsExpectedDigest = newDigest;
   matrix.meta.docsActualDigest = newDigest;
+  matrix.meta.nodesDigest = require('../lib/matrix.js').calculateNodesDigest();
   saveMatrix(matrix);
 }
 

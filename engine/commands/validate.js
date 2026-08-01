@@ -38,6 +38,14 @@ function run() {
       process.exit(1);
     }
 
+    // 4. 节点↔docs 漂移检测：nodes 已变但未重新 compile（nodesDigest 对比）
+    const { calculateNodesDigest } = require('../lib/matrix.js');
+    const currentNodesDigest = calculateNodesDigest();
+    if (matrix.meta?.nodesDigest && matrix.meta.nodesDigest !== currentNodesDigest) {
+      console.error('[ASA] ❌ 节点文件已变更但未重新 compile，请运行 node .asa/index.js compile');
+      process.exit(1);
+    }
+
     console.log('[ASA] ✅ 全量健康检查通过');
     process.exit(0);
   } catch (e) {

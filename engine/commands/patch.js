@@ -85,7 +85,7 @@ function run() {
   } else {
     // 无可反向同步的变更：docs 与节点不一致（如人类只改了优先级行）。
     // 以节点为准重建 docs，避免 digest 假一致导致 validate 永久失败。
-    console.log('[ASA] 无可反向同步的字段变更，以节点为准重建 docs...');
+    console.warn('[ASA] ⚠️ docs 中无可反向同步的字段变更（如优先级/状态/标题等手工修改），将以节点为准重建，这些手工改动会被覆盖。请改 nodes/ 下的节点文件。');
     const { run: compile } = require('./compile.js');
     compile();
   }

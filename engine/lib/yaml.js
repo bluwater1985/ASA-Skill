@@ -52,14 +52,16 @@ function stripInlineComment(s) {
   return s.trim();
 }
 
-// 引号感知顶层逗号分拆（用于 flow 数组/映射）
+// 引号感知顶层逗号分拆（用于 flow 数组/映射），感知嵌套 {} / []
 function splitFlow(inner) {
   const parts = [];
-  let buf = '', quote = null;
+  let buf = '', quote = null, depth = 0;
   for (const ch of inner) {
     if (quote && ch === quote) { quote = null; buf += ch; }
     else if (!quote && (ch === '"' || ch === "'")) { quote = ch; buf += ch; }
-    else if (!quote && ch === ',') { parts.push(buf.trim()); buf = ''; }
+    else if (!quote && (ch === '{' || ch === '[')) { depth++; buf += ch; }
+    else if (!quote && (ch === '}' || ch === ']')) { depth--; buf += ch; }
+    else if (!quote && depth === 0 && ch === ',') { parts.push(buf.trim()); buf = ''; }
     else { buf += ch; }
   }
   if (buf.trim()) parts.push(buf.trim());
@@ -197,6 +199,7 @@ function parseAsaYaml(text) {
         const item = {};
         if (rawVal === '') {
           item[key] = {};
+          Object.defineProperty(item[key], '__placeholder', { value: true, enumerable: false, writable: true });
         } else {
           item[key] = parseScalar(rawVal);
         }
@@ -229,6 +232,8 @@ function parseAsaYaml(text) {
       let target = parent[key];
       if (target === null || target === undefined) {
         target = {};
+        // 标记为"空值占位符"，解析结束后若无子键则转为 null
+        Object.defineProperty(target, '__placeholder', { value: true, enumerable: false, writable: true });
         parent[key] = target;
       }
       if (typeof target === 'object' && target !== null) {
@@ -239,7 +244,27 @@ function parseAsaYaml(text) {
     }
   }
 
+  // 空值占位符若无任何子键，转为 null（如 `priority:` 应为 null 而非 {}）
+  cleanupPlaceholders(root);
   return root;
+}
+
+function cleanupPlaceholders(node) {
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i++) {
+      if (node[i] && typeof node[i] === 'object') cleanupPlaceholders(node[i]);
+      if (node[i] && node[i].__placeholder && Object.keys(node[i]).length === 0) {
+        node[i] = null;
+      }
+    }
+  } else if (node && typeof node === 'object') {
+    for (const k of Object.keys(node)) {
+      if (node[k] && typeof node[k] === 'object') cleanupPlaceholders(node[k]);
+      if (node[k] && node[k].__placeholder && Object.keys(node[k]).length === 0) {
+        node[k] = null;
+      }
+    }
+  }
 }
 
 // ── 序列化 ──
@@ -302,6 +327,11 @@ function stringifyAsaYaml(obj, indent = 0) {
       out += `${pad}${key}:\n`;
       out += stringifyAsaArray(value, indent + 1);
     } else if (typeof value === 'object' && value !== null) {
+      if (Object.keys(value).length === 0) {
+        // 空对象输出 {}，避免 round-trip 被解析为空值占位符→null
+        out += `${pad}${key}: {}\n`;
+        continue;
+      }
       out += `${pad}${key}:\n`;
       out += stringifyAsaYaml(value, indent + 1);
     } else {
