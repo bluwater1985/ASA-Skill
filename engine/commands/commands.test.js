@@ -467,7 +467,7 @@ describe('reconcile migration and bootstrap', () => {
     const r = run(d, 'reconcile', []);
     assert.ok(fs.existsSync(path.join(d, '.asa/matrix.yaml')));
     const m = readMatrix(d);
-    assert.equal(m.meta.schemaVersion, 3);
+    assert.equal(m.meta.schemaVersion, 4);
     try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
   });
 });

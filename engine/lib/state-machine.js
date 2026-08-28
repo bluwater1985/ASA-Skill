@@ -28,6 +28,16 @@ const TRANSITIONS = {
     blocked:      ['in_progress'],
     cancelled:    ['pending'],   // 误取消可恢复
   },
+  ISSUE: {
+    open:         ['triaged', 'cancelled', 'wontfix'],
+    triaged:      ['in_progress', 'cancelled', 'wontfix'],
+    in_progress:  ['resolved', 'cancelled', 'blocked'],
+    blocked:      ['in_progress'],
+    resolved:     ['verified', 'open', 'in_progress'],  // verified=验收终态；open/in_progress=返工回开（对齐 TASK）
+    verified:     [],            // 吸收态
+    wontfix:      [],            // 吸收态
+    cancelled:    ['open'],      // 误取消可恢复
+  },
 };
 
 /**

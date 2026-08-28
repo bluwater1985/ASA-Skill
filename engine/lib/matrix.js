@@ -55,7 +55,7 @@ function saveMatrix(matrix) {
 function calculateDocsDigest(projectRoot) {
   const dd = projectRoot ? path.join(projectRoot, 'docs') : docsDir();
   if (!fs.existsSync(dd)) return 'sha256:empty';
-  const files = fs.readdirSync(dd).filter(f => f === '01-requirements.md' || f === '03-tasks.md').sort();
+  const files = fs.readdirSync(dd).filter(f => f === '01-requirements.md' || f === '03-tasks.md' || f === '04-issues.md').sort();
   // 空目录与骨架哨兵 "sha256:empty" 一致
   if (files.length === 0) return 'sha256:empty';
   const hash = crypto.createHash('sha256');
@@ -71,7 +71,7 @@ function calculateNodesDigest(projectRoot) {
   const nodesDir = projectRoot ? path.join(projectRoot, '.asa/nodes') : path.join(process.cwd(), '.asa/nodes');
   if (!fs.existsSync(nodesDir)) return 'sha256:empty';
   const files = [];
-  for (const cat of ['requirements', 'architecture', 'tasks']) {
+  for (const cat of ['requirements', 'architecture', 'tasks', 'issues']) {
     const dir = path.join(nodesDir, cat);
     if (!fs.existsSync(dir)) continue;
     for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.yaml')).sort()) {
@@ -92,7 +92,7 @@ function calculateNodesDigest(projectRoot) {
 // 返回 { nodes, fixes }，fixes 记录每个文件的软化情况（用于迁移报告）。
 function loadAllNodes(lenient) {
   const nodes = {};
-  const categories = ['requirements', 'architecture', 'tasks'];
+  const categories = ['requirements', 'architecture', 'tasks', 'issues'];
   const errors = [];
   const fixes = [];
   for (const cat of categories) {
@@ -142,17 +142,19 @@ function atomicWriteYaml(filePath, data) {
   fs.renameSync(tmpPath, filePath);
 }
 
-// 从 nodes/ 重建 matrix 的 requirements/architecture/tasks 摘要索引
+// 从 nodes/ 重建 matrix 的 requirements/architecture/tasks/issues 摘要索引
 function rebuildSummary(matrix, nodes) {
-  const catMap = { requirements: 'requirements', architecture: 'architecture', tasks: 'tasks' };
+  const catMap = { requirements: 'requirements', architecture: 'architecture', tasks: 'tasks', issues: 'issues' };
   matrix.requirements = matrix.requirements || {};
   matrix.architecture = matrix.architecture || {};
   matrix.tasks = matrix.tasks || {};
+  matrix.issues = matrix.issues || {};
 
   // 清空后重建（以 nodes/ 为准）
   matrix.requirements = {};
   matrix.architecture = {};
   matrix.tasks = {};
+  matrix.issues = {};
 
   for (const [id, node] of Object.entries(nodes)) {
     const cat = node.__category;
@@ -162,6 +164,7 @@ function rebuildSummary(matrix, nodes) {
       status: node.status || 'pending',
     };
     if (cat === 'tasks') summary.file = `.asa/nodes/tasks/${id}.yaml`;
+    if (cat === 'issues') summary.file = `.asa/nodes/issues/${id}.yaml`;
     matrix[catMap[cat]][id] = summary;
   }
 }

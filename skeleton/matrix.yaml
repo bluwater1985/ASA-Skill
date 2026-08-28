@@ -2,7 +2,7 @@
 meta:
   project: "<项目名称>"
   phase: "discovery"
-  schemaVersion: 3
+  schemaVersion: 4
   compiledDocsExpectedDigest: "sha256:empty"
   compiledDocsActualDigest: "sha256:empty"
   nodesDigest: "sha256:empty"
@@ -11,4 +11,5 @@ risks: []
 requirements: {}
 architecture: {}
 tasks: {}
+issues: {}
 edges: []

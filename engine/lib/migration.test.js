@@ -103,9 +103,9 @@ describe('reconcile auto-migration', () => {
     assert.equal(node.status, 'pending');
     // desc 已转成引号串（可正常解析）
     assert.ok(node.desc.includes('第一行'));
-    // matrix 应更新：schemaVersion 3 + nodesDigest
+    // matrix 应更新：schemaVersion 4 + nodesDigest
     const matrix = parseAsaYaml(fs.readFileSync(path.join(dir, '.asa/matrix.yaml'), 'utf-8'));
-    assert.equal(matrix.meta.schemaVersion, 3);
+    assert.equal(matrix.meta.schemaVersion, 4);
     assert.ok(matrix.meta.nodesDigest);
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
   });

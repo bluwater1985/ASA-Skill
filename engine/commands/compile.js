@@ -58,7 +58,7 @@ function compileDoc(docName, category, nodes, matrix) {
     }
   }
 
-  let defaultHeader = category === 'requirements' ? '# 项目核心需求资产清单\n\n' : '# 项目任务清单\n\n';
+  let defaultHeader = category === 'requirements' ? '# 项目核心需求资产清单\n\n' : category === 'issues' ? '# 项目问题清单\n\n' : '# 项目任务清单\n\n';
   let content = userHeader ? `${userHeader}\n\n---\n\n` : defaultHeader;
 
   // sort by ID ascending
@@ -121,6 +121,18 @@ function compileDoc(docName, category, nodes, matrix) {
       } else {
         content += `(No description)\n`;
       }
+    } else if (category === 'issues') {
+      content += `- 状态: ${node.status || 'open'}\n`;
+      content += `- 类别: ${node.category || 'observation'}\n`;
+      content += `- 严重度: ${node.severity || 'P2'}\n`;
+      if (node.discoveredBy) content += `- 来源: ${node.discoveredBy}\n`;
+      const linked = [...(node.linkedReqs || []), ...(node.linkedTasks || []), ...(node.linkedArch || [])];
+      if (linked.length > 0) content += `- 关联: ${linked.join(', ')}\n`;
+      if (node.version) content += `- 版本: ${node.version}\n`;
+      if (node.description) content += `\n${node.description}\n`;
+      if (node.resolution) {
+        content += `\n- 处置: ${node.resolution.note || ''} (by ${node.resolution.by || ''})${node.resolution.verifiedAt ? '，已验收' : ''}\n`;
+      }
     }
 
     content += `\n<!-- ASA-NODE-END -->\n\n---\n\n`;
@@ -153,6 +165,7 @@ function run() {
 
   compileDoc('01-requirements.md', 'requirements', nodes, matrix);
   compileDoc('03-tasks.md', 'tasks', nodes, matrix);
+  compileDoc('04-issues.md', 'issues', nodes, matrix);
 
   console.log('[ASA] Docs 编译完成。');
 

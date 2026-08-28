@@ -58,7 +58,7 @@ if (isReInit) {
 }
 
 // 创建目录结构（knowledge/ 供 tier3 知识管理使用）
-['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/hooks', '.asa/knowledge', '.asa/rules'].forEach(d =>
+['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/nodes/issues', '.asa/hooks', '.asa/knowledge', '.asa/rules'].forEach(d =>
   fs.mkdirSync(d, { recursive: true })
 );
 
@@ -71,7 +71,7 @@ if (!fs.existsSync(matrixPath)) {
   const matrixYaml = `meta:
   project: "${projectName}"
   phase: "discovery"
-  schemaVersion: 3
+  schemaVersion: 4
   engineVersion: "3.x"
   compiledDocsExpectedDigest: "sha256:empty"
   compiledDocsActualDigest: "sha256:empty"
@@ -79,6 +79,7 @@ risks: []
 requirements: {}
 architecture: {}
 tasks: {}
+issues: {}
 edges: []
 `;
   fs.writeFileSync(matrixPath, matrixYaml);

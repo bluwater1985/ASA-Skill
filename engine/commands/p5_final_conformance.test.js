@@ -217,13 +217,13 @@ edges: []
     // 3. 强核断言：
     //    - 软化迁移顺利顺承跑完，TASK-555.yaml 已经被规范化写回
     //    - 且 100% 物理补全了默认的空数组 linkedReqs 和 changedFiles！
-    //    - 且 matrix.yaml 的 schemaVersion 被设为 3！
+    //    - 且 matrix.yaml 的 schemaVersion 被升到 MAX_SUPPORTED_SCHEMA (4)！
     const taskContent = fs.readFileSync(path.join(dir, '.asa/nodes/tasks/TASK-555.yaml'), 'utf-8');
     assert.match(taskContent, /linkedReqs:\s*\[\]/);
     assert.match(taskContent, /changedFiles:\s*\[\]/);
 
     const matrixContent = fs.readFileSync(path.join(dir, '.asa/matrix.yaml'), 'utf-8');
-    assert.match(matrixContent, /schemaVersion:\s*3/);
+    assert.match(matrixContent, /schemaVersion:\s*4/);
   });
 
   it('verifies that plan-tasks (plan.js) does NOT list awaiting-confirmation tasks in ready list', () => {
@@ -290,6 +290,7 @@ edges: []
     // 清除残留编译文档
     try { fs.unlinkSync(path.join(dir, 'docs/01-requirements.md')); } catch (e) {}
     try { fs.unlinkSync(path.join(dir, 'docs/03-tasks.md')); } catch (e) {}
+    try { fs.unlinkSync(path.join(dir, 'docs/04-issues.md')); } catch (e) {}
 
     // 00-overview 的锚点写成了不一样的 nodesDigest
     fs.writeFileSync(path.join(dir, 'docs/00-overview.md'), '<!-- ASA-BASED-ON: sha256:nodesOUTDATED -->\n# Overview\n');

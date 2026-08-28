@@ -30,7 +30,7 @@ const { acquireLock, releaseLock } = require('./lib/lock.js');
 const writeCommands = new Set([
   'compile', 'patch', 'reconcile', 'status', 'deprecate',
   'edge', 'propagate', 'change-req', 'change-arch', 'change-task',
-  'add-req', 'add-arch', 'add-task', 'set',
+  'add-req', 'add-arch', 'add-task', 'add-issue', 'set',
   'confirm-task', 'reject-task', 'cancel-task', 'link-task', 'record-changes'
 ]);
 
@@ -146,6 +146,9 @@ try {
       break;
     case 'add-task':
       addNode('task', args);
+      break;
+    case 'add-issue':
+      addNode('issue', args);
       break;
     case 'journal':
       journal();

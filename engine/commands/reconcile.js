@@ -149,7 +149,7 @@ function runMigration(matrixFromSkeleton, txId) {
       matrix = parseAsaYaml(
         fs.existsSync(skeletonPath)
           ? fs.readFileSync(skeletonPath, 'utf-8')
-          : `meta:\n  phase: "discovery"\n  schemaVersion: ${MAX_SUPPORTED_SCHEMA}\nrisks: []\nrequirements: {}\narchitecture: {}\ntasks: {}\nedges: []\n`
+          : `meta:\n  phase: "discovery"\n  schemaVersion: ${MAX_SUPPORTED_SCHEMA}\nrisks: []\nrequirements: {}\narchitecture: {}\ntasks: {}\nissues: {}\nedges: []\n`
       );
     }
   }
@@ -221,7 +221,7 @@ function run(args) {
       matrix = parseAsaYaml(
         fs.existsSync(skeletonPath)
           ? fs.readFileSync(skeletonPath, 'utf-8')
-          : `meta:\n  phase: "discovery"\n  schemaVersion: ${MAX_SUPPORTED_SCHEMA}\n  engineVersion: "${ENGINE_VERSION}"\nrisks: []\nrequirements: {}\narchitecture: {}\ntasks: {}\nedges: []\n`
+          : `meta:\n  phase: "discovery"\n  schemaVersion: ${MAX_SUPPORTED_SCHEMA}\n  engineVersion: "${ENGINE_VERSION}"\nrisks: []\nrequirements: {}\narchitecture: {}\ntasks: {}\nissues: {}\nedges: []\n`
       );
       console.warn('[ASA] ⚠️ 已用骨架重建 matrix，edges 依赖关系需从备份恢复');
       saveMatrix(matrix);
@@ -270,7 +270,7 @@ function run(args) {
   // 存量迁移 (级别 3)
   const currentSchema = matrix.meta?.schemaVersion || 1;
   if (currentSchema < MAX_SUPPORTED_SCHEMA) {
-    console.log(`[ASA] 检测到存量 Schema 版本 ${currentSchema} < 3，启动原子级 Schema 3 迁移...`);
+    console.log(`[ASA] 检测到存量 Schema 版本 ${currentSchema} < ${MAX_SUPPORTED_SCHEMA}，启动原子级 Schema ${MAX_SUPPORTED_SCHEMA} 迁移...`);
     
     // 前置历史清洗
     try {
@@ -378,7 +378,7 @@ function run(args) {
     const { run: compile } = require('./compile.js');
     compile();
 
-    console.log(`  ✓ 项目成功迁移至 Schema 3 级规范。落盘引擎版本标定为 ${ENGINE_VERSION}。`);
+    console.log(`  ✓ 项目成功迁移至 Schema ${MAX_SUPPORTED_SCHEMA} 级规范。落盘引擎版本标定为 ${ENGINE_VERSION}。`);
   }
 
     // 从 nodes/ 重建摘要索引（以节点文件为准）

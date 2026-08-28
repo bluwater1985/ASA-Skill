@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// asa-init.js — Claude Code ASA v3 项目级初始化脚本
+// asa-init.js — ASA v3 初始化脚本（跨平台，兼容 Windows/Mac/Linux）
 // 用法: node asa-init.js [tier1|tier2|tier3] [project-name]
 //
 // 重跑安全：
-//   - 项目数据文件（matrix.yaml, CLAUDE.md, nodes/）→ 不覆盖
+//   - 项目数据文件（matrix.yaml, GEMINI.md, nodes/）→ 不覆盖
 //   - 引擎文件（index.js, hooks/）→ 更新
-//   - 配置文件（settings.local.json, pre-commit）→ 更新
+//   - 配置文件（settings.json, pre-commit）→ 更新
 
 const fs = require('fs');
 const path = require('path');
@@ -18,7 +18,7 @@ const projectName = args.find(a => a.startsWith('--name='))?.split('=')[1] || pa
 const tierNum = { tier1: 1, tier2: 2, tier3: 3 }[tier] || 2;
 const homeAsa = path.join(os.homedir(), '.asa');
 
-// CLAUDE.md/GEMINI.md 契约合并模块（来自引擎库 engine/lib/contract-merge.js）
+// GEMINI.md 契约合并模块（来自引擎库 engine/lib/contract-merge.js）
 // 缺失（旧版全局引擎）时降级为保守跳过，提示重跑 install.js。
 let mergeMod = null;
 try { mergeMod = require(path.join(homeAsa, 'lib', 'contract-merge.js')); } catch (e) { mergeMod = null; }
@@ -31,7 +31,7 @@ function backupPath(file) {
   return `${file}.bak.${ts}`;
 }
 
-// 合并 CLAUDE.md/GEMINI.md（平台无关）。
+// 合并 GEMINI.md/CLAUDE.md（平台无关）。
 // 返回：
 //   'skip'              → 契约一致，无需更新
 //   'error'             → 无法定位标准契约段 / 合并模块缺失，调用方应保守保留原文件
@@ -40,12 +40,12 @@ function mergeContractFile(mdPath, templateText) {
   if (!mergeMod) return 'error';
   const tb = mergeMod.extractContractBlock(templateText);
   if (!tb) return 'error';
-  const existingText = fs.readFileSync(mdPath, 'utf-8');
+  const existingText = fs.readFileSync(geminiMdPath, 'utf-8');
   if (mergeMod.contractUnchanged(existingText, tb.block)) return 'skip';
   const merged = mergeMod.mergeContract(existingText, tb.block);
   if (merged === null) return 'error';
-  const backup = backupPath(mdPath);
-  fs.copyFileSync(mdPath, backup);
+  const backup = backupPath(geminiMdPath);
+  fs.copyFileSync(geminiMdPath, backup);
   return { backup, text: merged };
 }
 
@@ -57,8 +57,8 @@ if (isReInit) {
   console.log(`🚀 ASA v3 ${tier} 初始化\n`);
 }
 
-// 创建目录结构
-['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/hooks', '.asa/knowledge', '.asa/rules'].forEach(d =>
+// 创建目录结构（knowledge/ 供 tier3 知识管理使用）
+['.asa/nodes/requirements', '.asa/nodes/architecture', '.asa/nodes/tasks', '.asa/nodes/issues', '.asa/hooks', '.asa/knowledge', '.asa/rules'].forEach(d =>
   fs.mkdirSync(d, { recursive: true })
 );
 
@@ -71,47 +71,49 @@ if (!fs.existsSync(matrixPath)) {
   const matrixYaml = `meta:
   project: "${projectName}"
   phase: "discovery"
-  schemaVersion: 3
+  schemaVersion: 4
+  engineVersion: "3.x"
   compiledDocsExpectedDigest: "sha256:empty"
   compiledDocsActualDigest: "sha256:empty"
 risks: []
 requirements: {}
 architecture: {}
 tasks: {}
+issues: {}
 edges: []
 `;
-  fs.writeFileSync(matrixPath, matrixYaml, 'utf-8');
+  fs.writeFileSync(matrixPath, matrixYaml);
   console.log('✅ matrix.yaml（新建）');
 } else {
   dataSkipped++;
 }
 
-// 2. CLAUDE.md
+// 2. GEMINI.md
 // 默认：契约一致 → 跳过；契约升级 → 先备份 + 段落级合并（保留项目自定义规约）
 // --force：整文件重建（同样先备份）
-const claudeMd = 'CLAUDE.md';
-const templateFile = path.join(homeAsa, 'templates', `CLAUDE-tier${tierNum}.md`);
+const geminiMd = 'GEMINI.md';
+const templateFile = path.join(homeAsa, 'templates', `gemini-tier${tierNum}.md`);
 if (fs.existsSync(templateFile)) {
   const templateText = fs.readFileSync(templateFile, 'utf-8');
-  if (!fs.existsSync(claudeMd)) {
-    fs.writeFileSync(claudeMd, templateText);
-    console.log('✅ CLAUDE.md（新建）');
+  if (!fs.existsSync(geminiMd)) {
+    fs.writeFileSync(geminiMd, templateText);
+    console.log('✅ GEMINI.md（新建）');
   } else if (forceFlag) {
-    const backup = backupPath(claudeMd);
-    fs.copyFileSync(claudeMd, backup);
-    fs.writeFileSync(claudeMd, templateText);
-    console.log(`✅ CLAUDE.md（已备份旧文件至 ${backup}，整文件重新生成）`);
+    const backup = backupPath(geminiMd);
+    fs.copyFileSync(geminiMd, backup);
+    fs.writeFileSync(geminiMd, templateText);
+    console.log(`✅ GEMINI.md（已备份旧文件至 ${backup}，整文件重新生成）`);
   } else {
-    const merged = mergeContractFile(claudeMd, templateText);
+    const merged = mergeContractFile(geminiMd, templateText);
     if (merged === 'skip') {
-      console.log('ℹ️  CLAUDE.md 契约一致，跳过（默认保留项目自定义内容）');
+      console.log('ℹ️  GEMINI.md 契约一致，跳过（默认保留项目自定义内容）');
       dataSkipped++;
     } else if (merged === 'error') {
-      console.log('ℹ️  CLAUDE.md 无法自动合并，已保留原文件（可用 --force 整文件重建，旧文件自动备份；若为引擎库缺失请重跑 node install.js）');
+      console.log('ℹ️  GEMINI.md 无法自动合并，已保留原文件（可用 --force 整文件重建，旧文件自动备份；若为引擎库缺失请重跑 node install.js）');
       dataSkipped++;
     } else {
-      fs.writeFileSync(claudeMd, merged.text);
-      console.log(`✅ CLAUDE.md 契约已随模板升级（已备份旧文件至 ${merged.backup}，项目自定义内容已保留）`);
+      fs.writeFileSync(geminiMd, merged.text);
+      console.log(`✅ GEMINI.md 契约已随模板升级（已备份旧文件至 ${merged.backup}，项目自定义内容已保留）`);
     }
   }
 }
@@ -133,18 +135,19 @@ if (fs.existsSync(versionSrc)) {
   engineUpdated++;
 }
 
-// 4. commands/ 和 lib/ （自洁：严格跳过 helpers.js 与测试文件）
+// 4. commands/
 ['commands', 'lib'].forEach(dir => {
   const srcDir = path.join(homeAsa, dir);
   const destDir = path.join('.asa', dir);
   if (fs.existsSync(srcDir)) {
     fs.mkdirSync(destDir, { recursive: true });
-    for (const f of fs.readdirSync(srcDir).filter(f => f.endsWith('.js') && !f.endsWith('.test.js') && f !== 'helpers.js')) {
+    for (const f of fs.readdirSync(srcDir).filter(f => f.endsWith('.js') && !f.endsWith('.test.js') && !f.endsWith('helpers.js'))) {
       fs.copyFileSync(path.join(srcDir, f), path.join(destDir, f));
     }
     engineUpdated++;
   } else if (fs.existsSync(path.join(homeAsa, 'index.js'))) {
-    console.warn(`⚠️  ~/.asa/${dir}/ 缺失：当前是旧版引擎。`);
+    // 引擎存在但缺 commands/lib → 旧版引擎，提示重跑 install
+    console.warn(`⚠️  ~/.asa/${dir}/ 缺失：当前是旧版引擎。请重新运行 node install.js 更新全局引擎。`);
   }
 });
 
@@ -169,88 +172,68 @@ if (fs.existsSync(rulesDir)) {
   console.warn(`⚠️  ~/.asa/rules/ 缺失：增量方法库（to-spec/to-tickets）未复制。请重跑 node install.js 更新全局引擎。`);
 }
 
-// ── 配置文件（项目级精准覆盖：不重复追加，使用本地相对路径） ──
+// ── 配置文件（精准覆盖：按 name 更新，不重复追加） ──
 if (tier !== 'tier1') {
   const ASA_HOOKS = {
-    'SessionStart': {
-      group: 'SessionStart',
+    'asa-check-work-order': {
+      matcher: 'write_file|replace|edit_file|patch_file|apply_diff|move_file',
+      group: 'BeforeTool',
       def: {
-        name: 'asa-session-start',
-        matcher: 'startup',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node .asa/hooks/session-start.js'
-          }
-        ],
-        description: 'ASA 启动诊断：纯只读状态汇总与 AwaitingConfirmation 提示'
+        name: 'asa-check-work-order', type: 'command',
+        command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/check-work-order.js') + '"',
+        timeout: 15000, description: 'ASA: 无活跃 Task 时阻止修改'
       }
     },
-    'PreToolUse': {
-      group: 'PreToolUse',
+    'asa-validate-yaml': {
+      matcher: 'write_file|replace|edit_file|patch_file|apply_diff|move_file',
+      group: 'AfterTool',
       def: {
-        name: 'asa-check-work-order',
-        matcher: 'Write|Edit|MultiEdit|NotebookEdit',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node .asa/hooks/check-work-order.js "$FILE_PATH"'
-          }
-        ],
-        description: 'ASA 状态拦截：无活跃 Task 时阻止文件修改'
-      }
-    },
-    'PostToolUse': {
-      group: 'PostToolUse',
-      def: {
-        name: 'asa-validate-yaml',
-        matcher: 'Write|Edit|MultiEdit|NotebookEdit',
-        hooks: [
-          {
-            type: 'command',
-            command: 'node .asa/hooks/validate-yaml.js "$FILE_PATH"'
-          }
-        ],
-        description: 'ASA YAML 校验与写后还原：写入后自动校验，失败一键物理还原'
+        name: 'asa-validate-yaml', type: 'command',
+        command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/validate-yaml.js') + '"',
+        timeout: 15000, description: 'ASA: 写入后校验 YAML'
       }
     }
   };
 
-  fs.mkdirSync('.claude', { recursive: true });
+  fs.mkdirSync('.gemini', { recursive: true });
 
-  let settings = { hooks: { SessionStart: [], PreToolUse: [], PostToolUse: [] } };
-  const settingsPath = '.claude/settings.local.json';
+  // 读取现有配置，或创建空壳
+  let settings = { hooks: { BeforeTool: [], AfterTool: [] } };
+  const settingsPath = '.gemini/settings.json';
   if (fs.existsSync(settingsPath)) {
     try {
       settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      if (!settings.hooks) settings.hooks = { SessionStart: [], PreToolUse: [], PostToolUse: [] };
+      if (!settings.hooks) settings.hooks = { BeforeTool: [], AfterTool: [] };
     } catch { /* 解析失败用默认空壳 */ }
   }
 
-  // 幂等按 name 写入/更新
+  // 对每个 ASA Hook：按 name 查找更新，不存在则追加
   for (const [, cfg] of Object.entries(ASA_HOOKS)) {
+    // 先落位 group 数组，避免缺键时 push 到游离数组导致 hook 丢弃
     if (!settings.hooks[cfg.group]) settings.hooks[cfg.group] = [];
     const group = settings.hooks[cfg.group];
-    const existingIdx = group.findIndex(g => g.name === cfg.def.name);
-    if (existingIdx !== -1) {
-      group[existingIdx] = cfg.def;
+    const existing = group.find(g => g.hooks?.some(h => h.name === cfg.def.name));
+    if (existing) {
+      // 更新已有 Hook 的 command 路径
+      const hook = existing.hooks.find(h => h.name === cfg.def.name);
+      if (hook) hook.command = cfg.def.command;
     } else {
-      group.push(cfg.def);
+      // 新增 matcher 组 + Hook
+      group.push({ matcher: cfg.matcher, hooks: [cfg.def] });
     }
   }
 
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
-  console.log('✅ .claude/settings.local.json（更新）');
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   // pre-commit
   fs.mkdirSync('.husky', { recursive: true });
-  fs.writeFileSync('.husky/pre-commit', 'node .asa/index.js validate || exit 1\n', 'utf-8');
+  fs.writeFileSync('.husky/pre-commit', 'node .asa/index.js validate || exit 1\n');
   try { fs.chmodSync('.husky/pre-commit', '755'); } catch {}
-  console.log('✅ .husky/pre-commit（新建/更新）');
 }
 
 // ── 总结 ──
 if (isReInit) {
+  // settings.json + pre-commit 仅在 tier2/3 写入
   const updated = engineUpdated + (tier !== 'tier1' ? 2 : 0);
   console.log(`\n🔄 重跑完成：${dataSkipped} 个数据文件已保留，${updated} 个引擎/配置文件已更新`);
   console.log('   项目中的需求、任务、架构数据不受影响');

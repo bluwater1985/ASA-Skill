@@ -64,6 +64,7 @@ function run(args) {
   if (!allowNoFiles) {
     if (changedFiles.length === 0) {
       console.error('[ASA] ❌ 任务未记录任何变更文件（changedFiles 为空），无法确认完成。请先用 record-changes 登记实施文件；若确实不产生文件变更，请显式传 --allow-no-files "<理由>"。');
+      console.error('[ASA] 💡 提示: 如需把"实现未落地/不合规"正式存档为问题，可运行 add-issue "<标题>" --category observation --desc "<说明>" --task ' + id);
       process.exit(1);
     }
     const missing = [];
@@ -73,6 +74,7 @@ function run(args) {
     }
     if (missing.length > 0) {
       console.error(`[ASA] ❌ 下列实施文件在工作树中不存在，无法确认完成: ${missing.join(', ')}。请补齐文件或核实路径；确属外部/不留盘交付可显式传 --allow-no-files "<理由>"。`);
+      console.error('[ASA] 💡 提示: 如需把"实现未落地/不合规"正式存档为问题，可运行 add-issue "<标题>" --category observation --desc "<说明>" --task ' + id);
       process.exit(1);
     }
   }

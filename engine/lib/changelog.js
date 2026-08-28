@@ -18,6 +18,7 @@ function appendChangeLog(node, type, summary, by) {
   const isStatusChange = ['proposed', 'approved', 'implemented', 'deprecated', 'modified',
     'rejected', 'draft', 'reviewed', 'superseded',
     'pending', 'in_progress', 'completed', 'verified', 'blocked', 'cancelled', 'awaiting-confirmation',
+    'open', 'triaged', 'resolved', 'wontfix',
     'reopen'
   ].includes(type);
 

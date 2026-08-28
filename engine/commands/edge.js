@@ -2,7 +2,7 @@
 const { loadMatrix, saveMatrix, loadAllNodes } = require('../lib/matrix.js');
 const { wouldCreateCycle } = require('../lib/graph.js');
 
-const VALID_TYPES = ['depends', 'extends', 'refines'];
+const VALID_TYPES = ['depends', 'extends', 'refines', 'affects', 'resolves'];
 
 function run(args) {
   // args: ['add', 'REQ-001', 'ARCH-001', '--type', 'depends']

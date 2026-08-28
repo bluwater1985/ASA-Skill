@@ -20,12 +20,15 @@ function run() {
   const reqs = Object.values(nodes).filter(n => n.__category === 'requirements');
   const archs = Object.values(nodes).filter(n => n.__category === 'architecture');
   const tasks = Object.values(nodes).filter(n => n.__category === 'tasks');
+  const issues = Object.values(nodes).filter(n => n.__category === 'issues');
+  const openIssues = issues.filter(n => !['verified', 'wontfix', 'cancelled', 'resolved'].includes(n.status));
 
   let output = `[ASA 项目总览摘要]\n\n`;
   output += `## 1. 节点规模统计 (Total Nodes)\n`;
   output += `- Requirements (需求节点): ${reqs.length}\n`;
   output += `- Architecture (架构节点): ${archs.length}\n`;
-  output += `- Tasks (任务节点): ${tasks.length}\n\n`;
+  output += `- Tasks (任务节点): ${tasks.length}\n`;
+  output += `- Issues (问题节点): ${issues.length}（未关闭 ${openIssues.length}）\n\n`;
   
   output += `## 2. 需求素材 (Requirements)\n`;
   output += `(需求正文请直接读取编译产物 docs/01-requirements.md 作为素材，此处不重复枚举)\n`;

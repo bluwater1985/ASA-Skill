@@ -38,12 +38,12 @@ describe('Task 1.2: Schema Version Guard tests', () => {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
   });
 
-  it('blocks writing when schemaVersion > MAX_SUPPORTED_SCHEMA (3)', () => {
+  it('blocks writing when schemaVersion > MAX_SUPPORTED_SCHEMA (4)', () => {
     const mp = path.join(dir, '.asa/matrix.yaml');
     const corruptedMatrix = `meta:
   project: "test"
   phase: "discovery"
-  schemaVersion: 4
+  schemaVersion: 5
 risks: []
 requirements: {}
 architecture: {}
@@ -58,13 +58,13 @@ edges: []
     assert.match(r.output, /引擎版本过低|Schema/i, 'Should report engine version compatibility error');
   });
 
-  it('blocks check-work-order hook when schemaVersion > MAX_SUPPORTED_SCHEMA (3)', () => {
-    // 写入一个 schemaVersion 4 的 matrix.yaml
+  it('blocks check-work-order hook when schemaVersion > MAX_SUPPORTED_SCHEMA (4)', () => {
+    // 写入一个 schemaVersion 5 的 matrix.yaml
     const mp = path.join(dir, '.asa/matrix.yaml');
     const corruptedMatrix = `meta:
   project: "test"
   phase: "discovery"
-  schemaVersion: 4
+  schemaVersion: 5
 risks: []
 requirements: {}
 architecture: {}

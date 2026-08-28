@@ -79,7 +79,9 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 | `validate [--json]` | CI/CD 静态校验门禁 | 哈希指纹、节点漂移、未完成传播校验。**叙事型文档（00, 02）不强制校验哈希**。 |
 | `reconcile` | 对账与数据自举 | **内嵌 `rollbackAllIncomplete()` 自动自愈**，在 missing 时可自举重建 matrix。 |
 | `add-req [--by user]`| 新增相似判定拦截 | 文本判重相似度 `> 0.9` 会触发拦截，可用 `--by` 强制审计特批豁免。 |
-| `update-overview` | 只读项目总览摘要 | **不写盘**。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材；本命令仅补齐架构/依赖边/lessons，并输出 `Nodes Digest (当前)`、可直接照抄的 `ASA-BASED-ON` 锚点与重写操作模板。 |
+| `add-issue <title> [--category <bug\|requirement-clarification\|observation\|risk>] [--severity P0-P3] [--task <id>] [--req <id>] [--arch <id>]` | 新增问题节点（Schema v4） | 第 4 类节点 `ISSUE-xxx`，默认 `observation / P2`。提出问题时**先分流**：bug → 建修复 TASK；需求没写清 → 改/补需求文档；否则以 observation/risk 观察。`--task/--req/--arch` 自动写 `affects` 边。 |
+| `status ISSUE-xxx <状态>` | ISSUE 状态机推进 | `open→triaged→in_progress→resolved→verified`，另有 `cancelled/wontfix`。`→resolved` 须 `--note "<处置>"`；`resolved→verified`、`resolved→open/in_progress`、`cancelled→open` 须 `--by`；`verified` 为吸收终态。 |
+| `update-overview` | 只读项目总览摘要 | **不写盘**。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材，问题清单用 `docs/04-issues.md`；本命令仅补齐架构/依赖边/lessons，并输出 `Nodes Digest (当前)`、可直接照抄的 `ASA-BASED-ON` 锚点与重写操作模板。 |
 
 ## 📄 叙事文档重写闭环（00-overview / 02-architecture）
 
@@ -89,6 +91,7 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 - **素材来源**：
   - 需求 → 读取 `docs/01-requirements.md`（compile 编译自 REQ 节点，含 spec/AC/状态/优先级）。
   - 任务 → 读取 `docs/03-tasks.md`（compile 编译自 TASK 节点，含完成/未完成状态）。
+  - 问题 → 读取 `docs/04-issues.md`（compile 编译自 ISSUE 节点，含状态/类别/严重度/处置）。
   - 架构/依赖边/lessons/digest → `node .asa/index.js update-overview`。
 - **更新/重写流程（一次命令闭环）**：
   1. 读 `docs/01-requirements.md` 与 `docs/03-tasks.md` 获取需求/任务真实素材。
@@ -98,6 +101,13 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
   5. `node .asa/index.js validate` — 确认无 `NARRATIVE_OUTDATED` 告警。
 - **被动检出**：`doctor` / `validate` 检出 00/02 锚点过期或缺失时，告警文本内附同一份可复制操作模板。
 - **`docs/` 写盘永远放行**：`check-work-order` 将 `docs/` 列入白名单，无 activeTask 也可写；且 00/02 为 `.md` 不参与 compile 哈希强校验。
+
+## 🐞 问题管理（ISSUE / Schema v4）
+
+- **自动升 ISSUE**：`reject-task`（被打回）、`confirm-task` 落地门禁被拒（给出 `add-issue` 提示）、`status <TASK> pending/in_progress`（completed 返工回开）都会**默认自动建 ISSUE** 记录"不合规/实现未落地"；可用 `--no-issue` 关闭。
+- **分流处置**：提出问题时先判断类别——bug（建修复 TASK）、requirement-clarification（改/补需求文档后以 `requirement-update` 结算）、observation/risk（观察）。
+- **关闭口径**：`resolved` 须 `--note` 说明处置；确认解决后 `verified --by <user>` 验收（吸收终态）；确非问题用 `wontfix`。
+- Schema v4 无感升级：存量 v3 项目 `reconcile` 后自动补 `matrix.issues`，无需人工迁移。
 
 ## 各 Tier 差异速查
 

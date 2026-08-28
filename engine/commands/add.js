@@ -42,13 +42,30 @@ const TEMPLATES = {
       pendingPropagation: [],
     },
   },
+  ISSUE: {
+    dir: 'issues',
+    template: {
+      title: '新问题',
+      status: 'open',
+      version: 1,
+      category: 'observation',        // bug | requirement-clarification | observation | risk
+      severity: 'P2',                 // P0-P3
+      description: '',
+      resolution: null,
+      linkedReqs: [],
+      linkedTasks: [],
+      linkedArch: [],
+      changeLog: [],
+      pendingPropagation: [],
+    },
+  },
 };
 
 function getNextId(nodesDir) {
   let max = 0;
   if (fs.existsSync(nodesDir)) {
     for (const f of fs.readdirSync(nodesDir)) {
-      const match = f.match(/^(REQ|ARCH|TASK)-(\d+)\.yaml$/);
+      const match = f.match(/^(REQ|ARCH|TASK|ISSUE)-(\d+)\.yaml$/);
       if (match) {
         const num = parseInt(match[2], 10);
         if (num > max) max = num;
@@ -100,10 +117,10 @@ function extractSpec(sourceText) {
 }
 
 function runNode(prefix, args) {
-  const prefixMap = { 'req': 'REQ', 'arch': 'ARCH', 'task': 'TASK' };
+  const prefixMap = { 'req': 'REQ', 'arch': 'ARCH', 'task': 'TASK', 'issue': 'ISSUE' };
   const p = prefixMap[prefix];
   if (!p) {
-    console.error(`[ASA] ❌ 未知类型: ${prefix}，请使用 req/arch/task`);
+    console.error(`[ASA] ❌ 未知类型: ${prefix}，请使用 req/arch/task/issue`);
     process.exit(1);
   }
 
@@ -115,6 +132,7 @@ function runNode(prefix, args) {
   let specSrc = null;        // add-req --spec <源文件.md>
   let requestId = null;      // --id <REQ-xxx>（认领指定 id）
   const taskOpts = { desc: null, inputs: null, outputs: null, req: null }; // add-task 全量字段
+  const issueOpts = { category: null, severity: null, req: null, task: null, arch: null }; // add-issue 字段
   const argList = Array.isArray(args) ? args : [args];
   const titleParts = [];
 
@@ -131,6 +149,10 @@ function runNode(prefix, args) {
     else if (a === '--inputs') { taskOpts.inputs = next(); }
     else if (a === '--outputs') { taskOpts.outputs = next(); }
     else if (a === '--req') { taskOpts.req = next(); }
+    else if (a === '--category') { issueOpts.category = next(); }
+    else if (a === '--severity') { issueOpts.severity = next(); }
+    else if (a === '--task') { issueOpts.task = next(); }
+    else if (a === '--arch') { issueOpts.arch = next(); }
     else if (a && a.startsWith('--')) {
       console.error(`[ASA] ❌ 未知参数: ${a}`);
       process.exit(1);
@@ -250,6 +272,28 @@ function runNode(prefix, args) {
     if (taskOpts.req) node.linkedReqs = dedupe([...(node.linkedReqs || []), taskOpts.req]);
   }
 
+  // add-issue：category/severity + affects 关联（Layer D）
+  if (p === 'ISSUE') {
+    const CATS = ['bug', 'requirement-clarification', 'observation', 'risk'];
+    if (issueOpts.category) {
+      if (!CATS.includes(issueOpts.category)) {
+        console.error(`[ASA] ❌ 无效 category: ${issueOpts.category}，可用: ${CATS.join(' | ')}`);
+        process.exit(1);
+      }
+      node.category = issueOpts.category;
+    }
+    if (issueOpts.severity) {
+      if (!/^P[0-3]$/.test(issueOpts.severity)) {
+        console.error(`[ASA] ❌ 无效 severity: ${issueOpts.severity}，可用: P0-P3`);
+        process.exit(1);
+      }
+      node.severity = issueOpts.severity;
+    }
+    if (issueOpts.req) node.linkedReqs = dedupe([...(node.linkedReqs || []), issueOpts.req]);
+    if (issueOpts.task) node.linkedTasks = dedupe([...(node.linkedTasks || []), issueOpts.task]);
+    if (issueOpts.arch) node.linkedArch = dedupe([...(node.linkedArch || []), issueOpts.arch]);
+  }
+
   // 记录逃生舱凭证至节点中
   if (p === 'REQ' && allowSimilarId && allowReason) {
     node.allowSimilar = {
@@ -263,10 +307,22 @@ function runNode(prefix, args) {
 
   // 登记到 matrix 摘要索引
   const matrix = loadMatrix();
-  const key = p === 'REQ' ? 'requirements' : p === 'ARCH' ? 'architecture' : 'tasks';
+  const key = p === 'REQ' ? 'requirements' : p === 'ARCH' ? 'architecture' : p === 'ISSUE' ? 'issues' : 'tasks';
   matrix[key] = matrix[key] || {};
   matrix[key][id] = { title: node.title, status: node.status };
   if (key === 'tasks') matrix[key][id].file = `.asa/nodes/tasks/${id}.yaml`;
+  if (key === 'issues') matrix[key][id].file = `.asa/nodes/issues/${id}.yaml`;
+  // ISSUE 入图：为 --req/--task/--arch 关联追加 affects 边
+  if (p === 'ISSUE') {
+    if (!Array.isArray(matrix.edges)) matrix.edges = [];
+    const targets = [...(node.linkedReqs || []), ...(node.linkedTasks || []), ...(node.linkedArch || [])];
+    for (const t of targets) {
+      const exists = matrix.edges.some(e =>
+        e.from === id && (e.to === t || (Array.isArray(e.to) && e.to.includes(t))) &&
+        (e.type || 'affects') === 'affects');
+      if (!exists) matrix.edges.push({ from: id, to: t, type: 'affects' });
+    }
+  }
   saveMatrix(matrix);
 
   console.log(`[ASA] ✅ ${id} 已创建: ${node.title}`);

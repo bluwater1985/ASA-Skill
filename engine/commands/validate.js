@@ -175,6 +175,17 @@ function run(args) {
     checkDocBasedOn('00-overview.md');
     checkDocBasedOn('02-architecture.md');
 
+    // 5.5 开放问题提示（非阻塞）：未关闭的 ISSUE 提醒分流处置
+    const issuesEntries = Object.entries(nodes).filter(([id]) => id.startsWith('ISSUE-'));
+    const openIssues = issuesEntries.filter(([, n]) => !['verified', 'wontfix', 'cancelled', 'resolved'].includes(n.status));
+    for (const [issueId, issueNode] of openIssues) {
+      warnings.push({
+        code: 'OPEN_ISSUE',
+        message: `ℹ️ 未关闭问题 ${issueId}（${issueNode.status}）: ${issueNode.title || ''}。请分流处置（建修复 TASK / 补需求文档 / 观察）。`,
+        id: issueId
+      });
+    }
+
     // 6. 统一输出结果
     const isBlocked = blockingErrors.length > 0;
     const finalStatus = isBlocked ? 'blocked' : 'ok';
@@ -187,7 +198,8 @@ function run(args) {
         summary: {
           nodes: Object.keys(nodes).length,
           tasks: tasks.length,
-          awaitingConfirmation: tasks.filter(([, t]) => t.status === 'awaiting-confirmation').length
+          awaitingConfirmation: tasks.filter(([, t]) => t.status === 'awaiting-confirmation').length,
+          openIssues: openIssues.length
         }
       };
       console.log(JSON.stringify(resultJson, null, 2));

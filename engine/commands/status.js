@@ -17,17 +17,24 @@ function run(id, newStatus) {
     process.exit(1);
   }
 
-  // 缺失 status 时按类型回退初始态：REQ→proposed, ARCH→draft, TASK→pending
-  const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
+  // 缺失 status 时按类型回退初始态：REQ→proposed, ARCH→draft, TASK→pending, ISSUE→open
+  const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending', ISSUE: 'open' };
   const type = (id || '').split('-')[0];
   const oldStatus = node.status || INITIAL[type] || 'pending';
 
-  // 解析 --by 审计参数
+  // 解析 --by / --note / --no-issue 参数
   let by = '';
+  let note = '';
+  let noIssue = false;
   for (let i = 2; i < process.argv.length; i++) {
     if (process.argv[i] === '--by' && i + 1 < process.argv.length) {
       by = process.argv[i + 1];
-      break;
+      i++;
+    } else if ((process.argv[i] === '--note' || process.argv[i] === '--reason') && i + 1 < process.argv.length) {
+      note = process.argv[i + 1];
+      i++;
+    } else if (process.argv[i] === '--no-issue') {
+      noIssue = true;
     }
   }
 
@@ -79,7 +86,32 @@ function run(id, newStatus) {
     }
   }
 
+  // ISSUE 返工/恢复/验收强锁 --by；in_progress→resolved 需 --note（resolution 软门禁）
+  if (type === 'ISSUE') {
+    const isRework = oldStatus === 'resolved' && (newStatus === 'open' || newStatus === 'in_progress');
+    const isRestore = oldStatus === 'cancelled' && newStatus === 'open';
+    const isVerify = oldStatus === 'resolved' && newStatus === 'verified';
+    if (isRework || isRestore || isVerify) {
+      if (!by || !by.trim()) {
+        console.error('[ASA] ❌ 缺少 --by 审计参数，ISSUE 返工/恢复/验收必须人工确权。');
+        process.exit(1);
+      }
+    }
+    if (oldStatus === 'in_progress' && newStatus === 'resolved') {
+      if (!note || !note.trim()) {
+        console.error('[ASA] ❌ 标记 ISSUE 为 resolved 必须提供 --note "<resolution 原因>"（软门禁）。');
+        process.exit(1);
+      }
+    }
+  }
+
   node.status = newStatus;
+  // ISSUE resolved/verified 记录 resolution 审计
+  if (type === 'ISSUE' && newStatus === 'resolved') {
+    node.resolution = { note: note || '', by: by || 'user', at: new Date().toISOString() };
+  } else if (type === 'ISSUE' && newStatus === 'verified' && node.resolution) {
+    node.resolution.verifiedAt = new Date().toISOString();
+  }
   let version;
   if (type === 'TASK' && oldStatus === 'cancelled' && newStatus === 'pending') {
     version = appendChangeLog(node, 'pending', `从已取消状态恢复: --by ${by}`, by);
@@ -88,6 +120,22 @@ function run(id, newStatus) {
     version = appendChangeLog(node, 'reopen', `任务返工(completed reopen): ${oldStatus} → ${newStatus} --by ${by}`, by);
   } else {
     version = appendChangeLog(node, newStatus, `状态变更: ${oldStatus} → ${newStatus}`, by || 'user');
+  }
+
+  // completed 返工回开 → 自动升 ISSUE 留痕（--no-issue 跳过）
+  if (type === 'TASK' && oldStatus === 'completed' && (newStatus === 'pending' || newStatus === 'in_progress') && !noIssue) {
+    const { createIssue } = require('../lib/issue.js');
+    const issueId = createIssue({
+      title: `返工: ${node.title}`,
+      description: `任务 ${id} 从 completed 返工回开为 ${newStatus}${note ? '，原因: ' + note : ''}`,
+      category: 'observation',
+      severity: 'P2',
+      linkedTasks: [id],
+      by: by || 'user',
+      discoveredBy: 'rework',
+      note: note || `任务 ${id} 返工回开`,
+    });
+    console.log(`[ASA] ℹ️ 已自动升 ISSUE ${issueId}（记录返工问题；可用 --no-issue 跳过）`);
   }
 
   const cat = node.__category;
@@ -100,7 +148,7 @@ function run(id, newStatus) {
   // 同步更新 matrix 摘要索引，避免陈旧状态；若目标状态为取消/已完成等终态，且节点为当前 active-task，自动归零
   try {
     const matrix = loadMatrix();
-    const mapKey = cat === 'requirements' ? 'requirements' : cat === 'architecture' ? 'architecture' : 'tasks';
+    const mapKey = cat === 'requirements' ? 'requirements' : cat === 'architecture' ? 'architecture' : cat === 'issues' ? 'issues' : 'tasks';
     if (matrix[mapKey] && matrix[mapKey][id]) {
       matrix[mapKey][id].status = newStatus;
     }

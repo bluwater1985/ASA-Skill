@@ -175,7 +175,8 @@ ASA 内置两套**按需加载**的增量方法，初始化为项目时自动复
 | `add-req <title> [--priority P1] [--by <user>]` | 新增需求节点（自动分配 ID 并触发 compile。支持相似度去重与豁免）。 |
 | `add-arch <title> [--by <user>]` | 新增架构节点。 |
 | `add-task <title> [--by <user>]` | 新增任务节点。 |
-| `edge add <from> <to> --type depends\|extends\|refines` | 新增依赖边。添加前利用逆向 BFS 机制运行强环路检测，防循环依赖。 |
+| `add-issue <title> [--category <bug\|requirement-clarification\|observation\|risk>] [--severity P0-P3] [--task <TASK-ID>] [--req <REQ-ID>] [--arch <ARCH-ID>]` | 新增问题(ISSUE)节点。默认 `observation / P2`，可用 `--category`/`--severity` 指定；`--task/--req/--arch` 会自动写入 `affects` 依赖边。提出问题时先做**分流**：确认 bug 则建修复 TASK、需求没写清则改/补需求文档、否则以 observation/risk 观察。 |
+| `edge add <from> <to> --type depends\|extends\|refines\|affects\|resolves` | 新增依赖边。添加前利用逆向 BFS 机制运行强环路检测，防循环依赖。`affects`（问题影响到某节点）、`resolves`（任务解决某问题）为 ISSUE 相关边类型。 |
 | `edge rm <from> <to>` | 物理删除依赖边。 |
 
 ### E. 关联、编排与查询
@@ -183,7 +184,7 @@ ASA 内置两套**按需加载**的增量方法，初始化为项目时自动复
 | 命令 | 说明 |
 |------|------|
 | `plan-tasks` | **[拓扑任务编排]** 对全量非取消任务运行拓扑排序，按阶段输出并行与前置依赖规划。 |
-| `update-overview` | 只读总览摘要：输出架构组件/ARCH 依赖边/lessons + `Nodes Digest (当前)` + 叙事文档重写操作模板。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材（不重复枚举）。**不加文件锁**。 |
+| `update-overview` | 只读总览摘要：输出架构组件/ARCH 依赖边/lessons + `Nodes Digest (当前)` + 叙事文档重写操作模板。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材（不重复枚举），问题清单用 `docs/04-issues.md`。**不加文件锁**。 |
 | `link-task <TASK-ID> <REQ-ID>` | 显式关联特定的开发任务与原始需求。 |
 | `record-changes <TASK-ID> <files...>` | 记录当前任务在开发过程中所修改的文件列表。 |
 | `journal` | 全项目全局系统历史审计。 |
@@ -209,6 +210,32 @@ ASA 内置两套**按需加载**的增量方法，初始化为项目时自动复
 
 ### 5. 三阶段 Schema 迁移向上兼容
 支持项目 `matrix.yaml` 和节点数据库版本向上迁移（Schema v3 升级）。在迁移操作中，使用 `migrationStage: prepared` -> `migrationStage: committing` -> `migrationStage: completed` 三阶段过程标记，最终阶段原子落盘改写 `schemaVersion`。在旧项目升级时，系统会自动后向兼容补全 TASK 节点缺失的 `linkedReqs` 和 `changedFiles` 默认值 `[]`，防止旧版本文件引发解析崩坏。
+
+---
+
+## v4 核心升级特性：ISSUE 问题管理（Schema v4）
+
+### 1. 第 4 类节点：问题(ISSUE)
+新增独立问题节点族 `ISSUE-xxx`（默认 `category: observation / severity: P2`）。提出问题时先做**分流(三态)**：确认为 bug → 建修复 TASK；需求没写清 → 改/补需求文档（`resolution.resolvedBy='requirement-update'`）；否则以 observation/risk 记录观察。适用场景：验证期发现缺陷、返工、被打回的合规问题、需求歧义、观察/风险。
+
+**ISSUE 状态机**：`open → triaged → in_progress → resolved → verified`（`verified` 为吸收终态），另有 `cancelled`、`wontfix`。
+
+### 2. ISSUE 状态门禁
+- `status ISSUE-xxx resolved --note "<处置原因>"`：`in_progress→resolved` 为软门禁，**必须提供 `--note`**（记录处置）。
+- `status ISSUE-xxx verified --by <user>`：`resolved→verified` **必须 `--by`**。
+- 返工/误取消恢复 `resolved→open/in_progress`、`cancelled→open` **必须 `--by`**；`verified` 为吸收态不可回开。
+
+### 3. 自动升 ISSUE（三处默认联动，`--no-issue` 逃生舱）
+- `reject-task`：任务被打回（不合规）→ 自动建 ISSUE 记录。
+- 落地门禁被拒（confirm-task changedFiles 为空/缺失）→ 给出 `add-issue` 提示。
+- `status TASK-xxx pending/in_progress`（completed 返工回开）→ 自动建 ISSUE 记录"实现未落地"。
+以上均可用 `--no-issue` 关闭自动建单。
+
+### 4. 资产与文档联动
+- `matrix.issues` 摘要 + `affects`（问题影响节点）/`resolves`（任务解决问题）边。
+- `compile` 产出 `docs/04-issues.md` 并纳入文档 digest；`update-overview`、`validate`、`doctor` 均纳入未关闭问题统计/告警。
+- 存量 v3 项目升级至 v4：`reconcile` 自动补 `matrix.issues`，向后兼容，无需人工迁移。
+
 
 ### 6. 解耦叙事型文档的编译哈希
 优化了 `validate` 校验规则。将经常需要由人工深度设计、润色、扩展的散文叙事型文档（如 `00-overview.md` 和 `02-architecture.md`）解耦出强制哈希。哈希指纹仅强力检验完全由引擎根据节点编译生成的 `01-requirements.md` 和 `03-tasks.md` 等数据索引展现型文档，既为架构师提供了自由挥洒架构设计的空间，又完美保全了对关键元数据一致性的硬核把控。

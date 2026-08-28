@@ -137,3 +137,56 @@ describe('getAllowedTransitions', () => {
     assert.deepEqual(getAllowedTransitions('TASK-001', 'completed'), ['verified', 'pending', 'in_progress']);
   });
 });
+
+describe('ISSUE state machine', () => {
+  it('allows open → triaged', () => {
+    assert.equal(validateTransition('ISSUE-001', 'open', 'triaged').valid, true);
+  });
+
+  it('allows open → wontfix / cancelled', () => {
+    assert.equal(validateTransition('ISSUE-001', 'open', 'wontfix').valid, true);
+    assert.equal(validateTransition('ISSUE-001', 'open', 'cancelled').valid, true);
+  });
+
+  it('rejects open → resolved (必须先 triaged/in_progress)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'open', 'resolved').valid, false);
+  });
+
+  it('rejects open → verified (跳过全链路)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'open', 'verified').valid, false);
+  });
+
+  it('allows triaged → in_progress', () => {
+    assert.equal(validateTransition('ISSUE-001', 'triaged', 'in_progress').valid, true);
+  });
+
+  it('allows in_progress → resolved / blocked', () => {
+    assert.equal(validateTransition('ISSUE-001', 'in_progress', 'resolved').valid, true);
+    assert.equal(validateTransition('ISSUE-001', 'in_progress', 'blocked').valid, true);
+  });
+
+  it('allows resolved → verified (验收终态)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'resolved', 'verified').valid, true);
+  });
+
+  it('allows resolved → open / in_progress (返工回开，对齐 TASK completed)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'resolved', 'open').valid, true);
+    assert.equal(validateTransition('ISSUE-001', 'resolved', 'in_progress').valid, true);
+  });
+
+  it('rejects verified → open (verified 吸收态不可回开)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'verified', 'open').valid, false);
+  });
+
+  it('rejects wontfix → any (吸收态)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'wontfix', 'open').valid, false);
+  });
+
+  it('allows cancelled → open (误取消可恢复)', () => {
+    assert.equal(validateTransition('ISSUE-001', 'cancelled', 'open').valid, true);
+  });
+
+  it('getAllowedTransitions(ISSUE resolved) = verified/open/in_progress', () => {
+    assert.deepEqual(getAllowedTransitions('ISSUE-001', 'resolved'), ['verified', 'open', 'in_progress']);
+  });
+});

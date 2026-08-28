@@ -292,7 +292,7 @@ edges: []
     assert.equal(r.exitCode, 0, 'reconcile should migrate successfully');
 
     const matrix = readMatrix(dir);
-    assert.equal(matrix.meta.schemaVersion, 3, 'schemaVersion must be successfully migrated to 3');
+    assert.equal(matrix.meta.schemaVersion, 4, 'schemaVersion must be successfully migrated to 4');
     // Ensure Task 2.6 softening fills TASK arrays
     assert.equal(matrix.meta.engineVersion, '3.x');
   });

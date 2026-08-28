@@ -24,11 +24,14 @@ function run(args) {
 
   let by = '';
   let note = '';
+  let noIssue = false;
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--by' && i + 1 < args.length) {
       by = args[++i];
     } else if ((args[i] === '--note' || args[i] === '--reason') && i + 1 < args.length) {
       note = args[++i];
+    } else if (args[i] === '--no-issue') {
+      noIssue = true;
     }
   }
 
@@ -82,6 +85,22 @@ function run(args) {
   }
 
   console.log(`[ASA] ✅ 任务已打回: ${id} (v${version})`);
+
+  // reviewer 驳回 → 自动升 ISSUE 留痕（--no-issue 跳过）：把"为什么不合规"落进问题管理
+  if (!noIssue) {
+    const { createIssue } = require('../lib/issue.js');
+    const issueId = createIssue({
+      title: `驳回: ${node.title}`,
+      description: `任务 ${id} 被 ${by || 'user'} 驳回，原因: ${note || '（未填写）'}。原确认信息: ${JSON.stringify(node.confirmation || {})}`,
+      category: 'observation',
+      severity: 'P2',
+      linkedTasks: [id],
+      by: by || 'user',
+      discoveredBy: 'reject',
+      note: note || `任务 ${id} 被打回`,
+    });
+    console.log(`[ASA] ℹ️ 已自动升 ISSUE ${issueId}（记录驳回问题；可用 --no-issue 跳过）`);
+  }
 
   // 自动编译
   try {

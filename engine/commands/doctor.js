@@ -82,7 +82,22 @@ function run() {
     }
   }
 
-  // 4. Legacy 无 type 的边诊断
+  // 4. 开放 ISSUE 提示（非阻塞信息）
+  const { loadAllNodes } = require('../lib/matrix.js');
+  let openIssues = [];
+  try {
+    const nodes = loadAllNodes();
+    openIssues = Object.entries(nodes)
+      .filter(([id]) => id.startsWith('ISSUE-'))
+      .filter(([, n]) => !['verified', 'wontfix', 'cancelled', 'resolved'].includes(n.status));
+  } catch (e) {}
+  if (openIssues.length > 0) {
+    console.log(`[INFO] ℹ️ 存在 ${openIssues.length} 个未关闭问题(ISSUE)，请分流处置: ${openIssues.map(([id]) => id).join(', ')}`);
+  } else {
+    console.log(`[OK] 无未关闭问题(ISSUE)。`);
+  }
+
+  // 5. Legacy 无 type 的边诊断
   let legacyEdgesCount = 0;
   if (matrix.edges) {
     for (const e of matrix.edges) {
