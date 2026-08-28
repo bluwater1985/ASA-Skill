@@ -1,0 +1,327 @@
+// engine/commands/propagate.js — 幂等变更传播
+// 语义：执行 pendingPropagation 中定义的结构化动作（set_status/append_to_array/...）。
+// 失败的动作不丢弃 —— 保留条目标 partial，返回非零退出码，让 validate 继续阻塞。
+const path = require('path');
+const { loadMatrix, loadAllNodes, atomicWriteYaml } = require('../lib/matrix.js');
+const { appendChangeLog, clearPendingPropagation } = require('../lib/changelog.js');
+const { validateTransition } = require('../lib/state-machine.js');
+
+// 返回: 'applied' | 'skipped'(幂等命中) | 'failed' | 'unknown'
+function executeAction(node, action) {
+  const type = action?.type;
+  const value = action?.value;
+  const target = action?.target;
+
+  switch (type) {
+    case 'set_status': {
+      if (!value) return 'failed';
+      // 缺失 status 按类型回退初始态（与 status.js 一致）
+      const INITIAL = { REQ: 'proposed', ARCH: 'draft', TASK: 'pending' };
+      const nodeType = (node.id || '').split('-')[0];
+      const old = node.status || INITIAL[nodeType] || 'pending';
+
+      // Awaiting 三出口强力拦截卫兵 (B1 / P0 级高风险状态机绕过漏洞防护)
+      if (nodeType === 'TASK' && old === 'awaiting-confirmation') {
+        if (['completed', 'in_progress', 'cancelled'].includes(value)) {
+          console.log(`  ✗ ${node.id}: awaiting-confirmation 状态只能通过 confirm-task / reject-task / cancel-task 专用命令进行流转，严禁通过传播动作 set_status 流转为 ${value}`);
+          return 'failed';
+        }
+      }
+
+      // cancelled -> pending 流转强锁 --by 人工确权卫兵
+      if (nodeType === 'TASK' && old === 'cancelled' && value === 'pending') {
+        let by = '';
+        for (let i = 2; i < process.argv.length; i++) {
+          if (process.argv[i] === '--by' && i + 1 < process.argv.length) {
+            by = process.argv[i + 1];
+            break;
+          }
+        }
+        if (!by || !by.trim()) {
+          console.log(`  ✗ ${node.id}: 缺少 --by 审计参数，不允许将已取消的 TASK 恢复为 pending。`);
+          appendChangeLog(node, 'modified', '从已取消状态恢复失败: 缺少 --by 审计参数', 'system');
+          return 'failed';
+        }
+        if (old === value) return 'skipped'; // 幂等
+        const trans = validateTransition(node.id, old, value);
+        if (!trans.valid) {
+          console.log(`  ✗ ${node.id}: 无法 set_status ${value}（${trans.error}）`);
+          return 'failed';
+        }
+        node.status = value;
+        appendChangeLog(node, 'pending', `从已取消状态恢复: --by ${by}`, by);
+        node.changeLog[node.changeLog.length - 1].summary = "从已取消状态恢复";
+        console.log(`  ✓ ${node.id}: set_status ${value} (原: ${old}, by: ${by})`);
+        return 'applied';
+      }
+
+      // completed -> pending/in_progress 返工回开：必须显式 --by 人工确权（自动化传播不得静默返工已完成任务）
+      if (nodeType === 'TASK' && old === 'completed' && (value === 'pending' || value === 'in_progress')) {
+        let by = '';
+        for (let i = 2; i < process.argv.length; i++) {
+          if (process.argv[i] === '--by' && i + 1 < process.argv.length) {
+            by = process.argv[i + 1];
+            break;
+          }
+        }
+        if (!by || !by.trim() || by === 'system') {
+          console.log(`  ✗ ${node.id}: 缺少 --by 审计参数，不允许将已完成的 TASK 返工回开为 ${value}。`);
+          appendChangeLog(node, 'modified', '返工回开失败: 缺少 --by 审计参数', 'system');
+          return 'failed';
+        }
+        const trans = validateTransition(node.id, old, value);
+        if (!trans.valid) {
+          console.log(`  ✗ ${node.id}: 无法 set_status ${value}（${trans.error}）`);
+          return 'failed';
+        }
+        node.status = value;
+        appendChangeLog(node, 'reopen', `任务返工(completed reopen): ${old} → ${value} --by ${by}`, by);
+        console.log(`  ✓ ${node.id}: set_status ${value} (原: ${old}, by: ${by})`);
+        return 'applied';
+      }
+
+      if (old === value) return 'skipped'; // 幂等
+      const trans = validateTransition(node.id, old, value);
+      if (!trans.valid) {
+        console.log(`  ✗ ${node.id}: 无法 set_status ${value}（${trans.error}）`);
+        return 'failed';
+      }
+
+      // completed -> verified 流转强锁 --by 人工确权卫兵 (B2 / P2 一致性漏洞防护)
+      if (nodeType === 'TASK' && old === 'completed' && value === 'verified') {
+        let by = '';
+        for (let i = 2; i < process.argv.length; i++) {
+          if (process.argv[i] === '--by' && i + 1 < process.argv.length) {
+            by = process.argv[i + 1];
+            break;
+          }
+        }
+        if (!by || !by.trim() || by === 'system') {
+          console.log(`  ✗ ${node.id}: 缺少 --by 审计参数，不允许将已完成的 TASK 直接验证为 verified。`);
+          return 'failed';
+        }
+        node.status = value;
+        appendChangeLog(node, 'verified', `传播动作: set_status verified --by ${by}`, by);
+        console.log(`  ✓ ${node.id}: set_status ${value} (原: ${old}, by: ${by})`);
+        return 'applied';
+      }
+
+      node.status = value;
+      appendChangeLog(node, value, `传播动作: set_status ${value}`, 'system');
+      console.log(`  ✓ ${node.id}: set_status ${value} (原: ${old})`);
+      return 'applied';
+    }
+    case 'append_to_array': {
+      if (!target) return 'failed';
+      if (value === undefined || value === null) {
+        console.log(`  ✗ ${node.id}: append_to_array 缺少 value，拒绝`);
+        return 'failed';
+      }
+      // 目标已存在且非数组 → 拒绝，避免静默覆盖原值
+      if (node[target] !== undefined && !Array.isArray(node[target])) {
+        console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，append 拒绝（当前值: ${JSON.stringify(node[target])}）`);
+        return 'failed';
+      }
+      if (!Array.isArray(node[target])) node[target] = [];
+      if (node[target].includes(value)) return 'skipped'; // 幂等
+      node[target].push(value);
+      appendChangeLog(node, 'modified', `传播动作: append ${target} += "${value}"`, 'system');
+      console.log(`  ✓ ${node.id}: append_to_array ${target} +1`);
+      return 'applied';
+    }
+    case 'set_field': {
+      if (!target) return 'failed';
+      if (value === undefined || value === null) {
+        console.log(`  ✗ ${node.id}: set_field 缺少 value，拒绝`);
+        return 'failed';
+      }
+      if (node[target] === value) return 'skipped'; // 幂等
+      node[target] = value;
+      appendChangeLog(node, 'modified', `传播动作: set ${target} = "${value}"`, 'system');
+      console.log(`  ✓ ${node.id}: set_field ${target}`);
+      return 'applied';
+    }
+    case 'replace_in_array': {
+      if (!target) return 'failed';
+      if (typeof value !== 'object' || value === null || value.old === undefined || value.new === undefined) {
+        console.log(`  ✗ ${node.id}: replace_in_array 的 value 必须 be {old, new}，拒绝`);
+        return 'failed';
+      }
+      const old = value.old;
+      const neu = value.new;
+      // 目标已存在且非数组 → 拒绝
+      if (node[target] !== undefined && !Array.isArray(node[target])) {
+        console.log(`  ✗ ${node.id}: 字段 "${target}" 不是数组，replace 拒绝`);
+        return 'failed';
+      }
+      if (!Array.isArray(node[target])) node[target] = [];
+      const idx = node[target].indexOf(old);
+      if (idx === -1) return 'skipped'; // 无可替换 = 已是最新
+      node[target][idx] = neu;
+      appendChangeLog(node, 'modified', `传播动作: replace ${target} "${old}" → "${neu}"`, 'system');
+      console.log(`  ✓ ${node.id}: replace_in_array ${target}`);
+      return 'applied';
+    }
+    default:
+      console.log(`  ✗ ${node.id}: 未知动作类型 "${type || '(空)'}"`);
+      return 'failed';
+  }
+}
+
+function writeNode(node, id) {
+  const cat = node.__category;
+  if (!cat) return;
+  // 用调用方提供的 id（= 文件名/id 键），而非 node.id 内容，避免与文件名不一致时写错路径
+  const fileId = id || node.id;
+  delete node.__category;
+  atomicWriteYaml(path.join(process.cwd(), `.asa/nodes/${cat}/${fileId}.yaml`), node);
+  node.__category = cat;
+}
+
+function run(startId) {
+  if (!startId) {
+    console.error('[ASA] 用法: node .asa/index.js propagate <ID>');
+    process.exit(1);
+  }
+
+  const matrix = loadMatrix();
+  const nodes = loadAllNodes();
+  const source = nodes[startId];
+
+  if (!source) {
+    console.error(`[ASA] ❌ 节点 ${startId} 不存在`);
+    process.exit(1);
+  }
+
+  console.log(`[ASA] 传播 ${startId} 的变更...`);
+  let applied = 0;
+  let failed = 0;
+  let pendingMutated = false; // 源节点 pendingPropagation 是否被改动（清除/标 partial）
+
+  const pending = source.pendingPropagation || [];
+
+  if (pending.length === 0) {
+    console.log(`  (无待传播的 pendingPropagation 条目)`);
+    return;
+  }
+
+  // 逐条目执行动作；只有全部成功/幂等命中的条目才清除
+  for (const entry of pending) {
+    const remaining = [];
+    for (const af of entry.affectedNodes || []) {
+      const node = nodes[af.id];
+      if (!node) {
+        console.log(`  ✗ ${af.id}: 节点不存在，动作保留待处理`);
+        failed++;
+        remaining.push(af);
+        continue;
+      }
+      const result = executeAction(node, af.action);
+      if (result === 'applied') {
+        writeNode(node, af.id);
+        applied++;
+      } else if (result === 'failed') {
+        writeNode(node, af.id); // 保存任何失败的日志/修改到目标节点
+        failed++;
+        remaining.push(af);
+      } else {
+        // skipped：幂等命中，无需保留
+      }
+    }
+
+    if (remaining.length === 0) {
+      clearPendingPropagation(source, entry.changeVersion, entry);
+      pendingMutated = true;
+      console.log(`  ✓ 条目 v${entry.changeVersion} 全部完成，已清除`);
+    } else {
+      entry.status = 'partial';
+      entry.affectedNodes = remaining;
+      pendingMutated = true;
+      console.log(`  ⚠️ 条目 v${entry.changeVersion} 有 ${remaining.length} 个动作未完成，已标记 partial`);
+    }
+  }
+
+  // 源节点版本/changelog/pending 有改动时都必须落盘
+  const srcType = (startId || '').split('-')[0];
+  let sourceModified = false; // 是否真正置为 modified
+
+  if (applied > 0) {
+    const oldVersion = parseInt(source.version, 10) || 0;
+    source.version = oldVersion + 1;
+    if (!source.changeLog) source.changeLog = [];
+
+    // 仅 REQ 源节点自动置 modified（且需状态机允许），否则保留原状态
+    const wasModified = source.status === 'modified';
+    if (srcType === 'REQ' && !wasModified) {
+      const trans = validateTransition(startId, source.status || 'proposed', 'modified');
+      if (trans.valid) {
+        source.status = 'modified';
+        sourceModified = true;
+        source.changeLog.push({
+          date: new Date().toISOString().split('T')[0],
+          type: 'modified',
+          version: source.version,
+          summary: `状态变更: 传播触发`,
+          by: 'system',
+        });
+      }
+    }
+    source.changeLog.push({
+      date: new Date().toISOString().split('T')[0],
+      type: 'propagation_done',
+      version: source.version,
+      summary: `传播完成: 应用了 ${applied} 个动作${failed > 0 ? `，${failed} 个失败待处理` : ''}`,
+      by: 'system',
+    });
+    console.log(`  → ${startId}: v${oldVersion} → v${source.version}${sourceModified ? `, status: modified` : `, status 不变`}`);
+  }
+
+  // pending 被清除/标 partial，或版本已递增 → 落盘源节点
+  if (pendingMutated || applied > 0) {
+    writeNode(source, startId);
+  }
+
+  // 只要有任何写盘，就立刻刷新并重构 matrix 摘要，保证 nodesDigest 物理一致 (B-3 修复)
+  if (pendingMutated || applied > 0) {
+    try {
+      const { rebuildSummary, saveMatrix: saveM, calculateNodesDigest } = require('../lib/matrix.js');
+      const m = loadMatrix();
+      rebuildSummary(m, loadAllNodes());
+      m.meta = m.meta || {};
+      m.meta.nodesDigest = calculateNodesDigest(); // N1 终极对齐：强制重算并刷新节点物理摘要
+      saveM(m);
+    } catch (e) {
+      console.error(`[ASA] ❌ 摘要重建同步失败: ${e.message}`);
+      throw e;
+    }
+  }
+
+  // 无实际应用动作但 pending 已处理（全部幂等跳过）→ 仅落盘，无需同步摘要
+  if (applied === 0) {
+    if (failed > 0) {
+      console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
+    } else if (pendingMutated) {
+      console.log(`  (全部动作幂等命中，已清除条目)`);
+    } else {
+      console.log(`  (无实际变更，源节点状态不变)`);
+    }
+    process.exit(failed > 0 ? 1 : 0);
+  }
+
+  // 更新重编译 docs（在失败退出前执行，保证已应用的状态落盘同步）
+  console.log(`  ✓ 重新 compile...`);
+  try {
+    const { run: compile } = require('./compile.js');
+    compile();
+  } catch (e) {
+    console.error(`  ❌ compile 失败: ${e.message}`);
+    throw e;
+  }
+
+  if (failed > 0) {
+    console.error(`[ASA] ❌ ${failed} 个动作执行失败，已保留为 partial。请人工处理后重跑 propagate。`);
+    process.exit(1);
+  }
+}
+
+module.exports = { run };

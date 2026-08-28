@@ -1,0 +1,4 @@
+module.exports = {
+  GUEST_HOOK_STDIN_TIMEOUT: 12000,
+  HOST_HOOK_EXEC_TIMEOUT: 15000
+};

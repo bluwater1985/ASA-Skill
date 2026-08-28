@@ -1,0 +1,14 @@
+# .asa/skeleton/matrix.yaml — ASA 项目初始骨架（参考模板；实际初始化由 SKILL.md / asa-init.js 生成）
+meta:
+  project: "<项目名称>"
+  phase: "discovery"
+  schemaVersion: 3
+  compiledDocsExpectedDigest: "sha256:empty"
+  compiledDocsActualDigest: "sha256:empty"
+  nodesDigest: "sha256:empty"
+
+risks: []
+requirements: {}
+architecture: {}
+tasks: {}
+edges: []

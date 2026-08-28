@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASA (AI Software Architect) v3 开发者完全指南</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans CJK SC", sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background-color: #fcfcfc;
+    }
+    h1, h2, h3, h4 {
+      color: #1a1a1a;
+      font-weight: 700;
+    }
+    h1 {
+      border-bottom: 2px solid #eaeaea;
+      padding-bottom: 15px;
+      font-size: 2.5em;
+    }
+    h2 {
+      border-bottom: 1px solid #eaeaea;
+      padding-bottom: 8px;
+      margin-top: 40px;
+      font-size: 1.8em;
+    }
+    h3 {
+      margin-top: 25px;
+      font-size: 1.4em;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      background-color: #f3f4f6;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #d11a2a;
+    }
+    pre {
+      background-color: #1e1e1e;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 0.95em;
+    }
+    pre code {
+      background-color: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #eaeaea;
+      padding: 12px 15px;
+      text-align: left;
+    }
+    th {
+      background-color: #f9fafb;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background-color: #fafbfc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-tier1 { background-color: #e0f2fe; color: #0369a1; }
+    .badge-tier2 { background-color: #f0fdf4; color: #166534; }
+    .badge-tier3 { background-color: #fef2f2; color: #991b1b; }
+    .note {
+      background-color: #fffbeb;
+      border-left: 4px solid #d97706;
+      padding: 15px;
+      border-radius: 0 4px 4px 0;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ASA (AI Software Architect) v3 开发者完全指南</h1>
+  <p><strong>版本：</strong> v3.0.0 (物理冻结版) | <strong>日期：</strong> 2026年8月22日</p>
+  <p>ASA 是一个零外部依赖的 AI 协同工程管理框架。它通过高契约的节点矩阵、状态机拦截与 ACID 级崩溃事务自愈锁，将 AI 从“代码生成器”升级为对项目全生命周期行为进行自我约束和严谨追溯的架构师。</p>
+
+  <div class="note">
+    <strong>🎯 核心定位：</strong> 
+    ASA 完美原生兼容 <strong>Claude Code</strong> 和 <strong>Gemini CLI</strong> 双平台。刻意追求 <strong>0 外部 npm 依赖</strong>，纯基于 Node.js 原生 API 构建。
+  </div>
+
+  <h2>🚀 一、三契约层级运行总纲 (Three-Tier System)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>运行层级</th>
+        <th>防护烈度</th>
+        <th>核心防守与验证机制</th>
+        <th>适用场景</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-tier1">Tier 1 - Starter</span></td>
+        <td>基础自律</td>
+        <td>会话启动强制只读诊断 <code>diagnose</code>，按 meta.phase 规律推进。</td>
+        <td>微型项目或开发自举初期。</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-tier2">Tier 2 - Defender</span></td>
+        <td>离线防御</td>
+        <td>启用 <code>check-work-order</code> PreToolUse 拦截与 <code>pre-commit</code> 静态门禁。</td>
+        <td>小团队或大中型模块，防半路漂移。</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-tier3">Tier 3 - Contract</span></td>
+        <td>强力契约</td>
+        <td>强制关联活跃任务（Work Order），代码改写前必须执行 <code>set active-task</code>。<code>validate</code> CI 级卡门。</td>
+        <td>极度要求覆盖率与高保真对账的重型工程。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>🔧 二、24 核心命令终极指南</h2>
+  
+  <h3>A. 基础与同步 (Sync & Baseline)</h3>
+  <ul>
+    <li><code>node .asa/index.js reconcile</code>：状态一致性对账。若 <code>matrix.yaml</code> 损坏，可自举重建并做 Tab 写法软化迁移，自动产生 <code>reconcile-pre-v3</code> 全量物理备份。支持只读 <code>-r</code> 路由。</li>
+    <li><code>node .asa/index.js compile</code>：正向编译。读取 <code>nodes/</code> 级数据，编译产生 <code>docs/01-requirements.md</code> 与 <code>03-tasks.md</code>，保留手写散文备注与注释头尾。</li>
+    <li><code>node .asa/index.js patch</code>：反向反写。解析 <code>01-requirements.md</code> 中人工补充的验收标准 <code>acceptanceCriteria</code> 并反向刷回 YAML。</li>
+    <li><code>node .asa/index.js validate [--json]</code>：CI/CD 拦截门禁。严格哈希指纹对账、对 00/02 设计文档进行叙事锚点对账、校验节点漂移与未尽传播。</li>
+    <li><code>node .asa/index.js traverse <id></code>：图 BFS 拓扑遍历。输出该节点的下游 Blast Radius JSON。</li>
+  </ul>
+
+  <h3>B. 状态机与工作秩序 (Work Order & Approval)</h3>
+  <ul>
+    <li><code>node .asa/index.js status <id> <new-status></code>：按照 strict 状态机模型原子流转状态，同状态跳转幂等拦截。</li>
+    <li><code>node .asa/index.js set phase <phase></code>：设置项目开发阶段（可选：<code>init</code>, <code>discovery</code>, <code>architecture</code>, <code>task-breakdown</code>, <code>implementation</code>, <code>review</code>）。</li>
+    <li><code>node .asa/index.js set active-task <TASK-ID></code>：锁定、激活当前开发的任务，是 PreToolUse 写入门禁的前提卡点。<code>set active-task clear</code> 退出。</li>
+    <li><code>node .asa/index.js confirm-task <id></code>：<strong>[架构师专属审核]</strong> 确认完成任务，将其推进至 <code>completed</code>。</li>
+    <li><code>node .asa/index.js reject-task <id> --reason "<理由>"</code>：<strong>[架构师专属审核]</strong> 驳回任务并赋予被拒修改意见，退回 <code>in_progress</code> 状态以供修复。</li>
+    <li><code>node .asa/index.js cancel-task <id></code>：安全取消特定任务，归零其活跃状态。</li>
+    <li><code>node .asa/index.js deprecate <id></code>：级联废弃（REQ 变 <code>deprecated</code> / ARCH 变 <code>superseded</code> / TASK 变 <code>cancelled</code>），其下游未完成 TASK 均自动级联取消。</li>
+  </ul>
+
+  <h3>C. 变更传播 (Propagation & Traceability)</h3>
+  <ul>
+    <li><code>node .asa/index.js impact <id></code>：变更影响分析。递归计算上游依赖（溯源）和下游爆炸半径影响树。</li>
+    <li><code>node .asa/index.js propagate <id></code>：幂等动作传播。级联执行 <code>pendingPropagation</code> 动作，并在局部失败时保留为 <code>partial</code>。</li>
+    <li><code>node .asa/index.js change-req|change-arch|change-task <id></code>：引导式阶段变更入口，先原子生成 <code>matrix-pre-change</code> 备份快照。</li>
+  </ul>
+
+  <h3>D. 节点与依赖边 (Nodes & Edges)</h3>
+  <ul>
+    <li><code>node .asa/index.js add-req <title> [--priority P1]</code>：新增需求，内置 Bigram Dice 二元相似算法对账。若 <code>score > 0.9</code>，必须提供 <code>--allow-similar <相似ID> --reason "<理由>" --by <操作人>` 三件套进行豁免。</li>
+    <li><code>node .asa/index.js add-arch <title></code>：新增架构组件。</li>
+    <li><code>node .asa/index.js add-task <title></code>：新增任务节点。</li>
+    <li><code>node .asa/index.js edge add <from> <to> --type depends|extends|refines</code>：添加依赖/扩展边。内置强图遍历，对循环依赖说不。</li>
+    <li><code>node .asa/index.js edge rm <from> <to></code>：删除无用边。</li>
+    <li><code>node .asa/index.js link-task <TASK-ID> <REQ-ID></code>：将开发任务与上游需求物理绑定追溯。</li>
+    <li><code>node .asa/index.js record-changes <TASK-ID> <files...></code>：记录本次任务修改的代码文件资产路径，形成完美的变更对账单。</li>
+    <li><code>node .asa/index.js journal</code> / <code>history <id></code>：对项目全局事件流或单节点变更进行时间线追溯审计。</li>
+  </ul>
+
+  <h3>E. 诊断与自愈 (Diagnose & Self-Heal)</h3>
+  <ul>
+    <li><code>node .asa/index.js diagnose</code>：快速<strong>纯只读自检</strong>，检测崩溃断电时留下的脏事务，统计 awaiting 状态数量。</li>
+    <li><code>node .asa/index.js doctor</code>：一键健康深度审计，扫描孤岛、环路及版本异常，安全推荐修复方法。</li>
+    <li><code>node .asa/index.js plan-tasks</code>：拓扑任务编排。利用 Kahn 排序和 <strong>Awaiting 传递阻塞剔除算法</strong>，计算并建议当前最纯净、就绪的任务执行序列，有效杜绝自相矛盾。</li>
+    <li><code>node .asa/index.js update-overview</code>：更新概览，重编 lessons 经验，产出带有 <code>ASA-BASED-ON</code> 指纹指引。</li>
+  </ul>
+
+  <h2>⚖️ 三、AI 行为基线契约与提审流程</h2>
+  <ol>
+    <li><strong>任务开发</strong>：必须首选激活当前任务：<code>set active-task TASK-001</code>。</li>
+    <li><strong>记录变更</strong>：开发完毕并通过本地测试后，必须立即主动运行 <code>node .asa/index.js record-changes TASK-001 <修改过的文件列表></code>。</li>
+    <li><strong>挂起等待确认</strong>：执行 <code>node .asa/index.js status TASK-001 awaiting-confirmation</code> 锁定状态，并立即调用 <code>set active-task clear</code> 清除当前活跃，<strong>挂起并等待大鹏（人类）审核</strong>。</li>
+    <li><strong>人类审核</strong>：人类手动执行 <code>confirm-task TASK-001</code>（任务变绿），或 <code>reject-task TASK-001 --reason "不满足验收标准"</code>（打回 <code>in_progress</code> 状态，AI 需重新激活进行修复）。</li>
+  </ol>
+
+  <h2>🛡️ 四、崩溃一致性自愈与写锁机制</h2>
+  <ul>
+    <li><strong>锁的生命周期</strong>：写命令在执行时，物理争夺 <code>.asa/lock</code> 独占排他锁，活 PID 绝不超时接管，防多 Agent 写入冲突。</li>
+    <li><strong>ACID 微事务</strong>：每次写操作会产生包含 <code>manifest.json</code> 的独立事务文件夹。在崩溃重启时，最顶层自动运行自愈回滚，物理还原或物理抹除非法残留。</li>
+    <li><strong>双适配 Hook</strong>：<code>PreToolUse</code> 和 <code>PostToolUse</code> 钩子具备完全的 Fail-Safe 与 Fail-Open 兜底设计，并能自适应 Claude argv 和 Gemini stdin payload。</li>
+  </ul>
+
+  <hr>
+  <footer style="margin-top: 50px; text-align: center; color: #888; font-size: 0.9em;">
+    <p>© 2026 ASA Spec-Driven Collaborative Framework. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>
