@@ -91,7 +91,7 @@
 
 ```yaml
 id: REQ-001
-title: "<需求标题>"
+title: "<名称>"  # 统一显示为 `<ID> - <名称>`，如 `REQ-001 - 用户登录`；名称用名词短语讲"能力/价值"，不说怎么做
 status: proposed
 version: 1
 priority: P2

@@ -32,7 +32,7 @@
 
 ### 4. 【拆解后交用户确认】← 关键步骤（to-tickets 特有，必做）
 把拆解结果以**编号清单**呈现给用户，每条展示：
-- **Title**：简短描述名
+- **Title**：统一 `<ID> - <名称>`（如 `TASK-003 - 实现登录接口`）；「名称」用**动词开头**讲"做什么"、可验收
 - **Blocked by**：必须先完成的其它 ticket（无则为「None — can start immediately」）
 - **What it delivers**：该 ticket 让哪段端到端行为可用（用户视角，而非逐层实现清单）
 
@@ -63,7 +63,7 @@
 
 ```yaml
 id: TASK-001
-title: "<任务标题>"
+title: "<名称>"  # 统一显示为 `<ID> - <名称>`，如 `TASK-003 - 实现登录接口`；名称用动词开头讲"做什么"
 status: pending
 version: 1
 inputs: []

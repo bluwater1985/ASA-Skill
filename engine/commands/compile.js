@@ -73,7 +73,7 @@ function compileDoc(docName, category, nodes, matrix) {
   for (const [id, node] of nodeEntries) {
     if (nodeNotes[id]) content += `${nodeNotes[id]}\n\n`;
     content += `<!-- ASA-NODE: ${id} -->\n`;
-    content += `## ${id}: ${node.title || '未命名'}\n\n`;
+    content += `## ${id} - ${node.title || '未命名'}\n\n`;
     
     if (category === 'requirements') {
       content += `- 优先级: ${node.priority || 'P1'}\n`;
