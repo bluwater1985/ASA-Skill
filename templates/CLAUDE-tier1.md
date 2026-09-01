@@ -28,6 +28,19 @@
 
 ---
 
+## 🐞 问题管理（ISSUE，Schema v4）
+
+项目含第 4 类问题节点 `ISSUE-xxx`（存于 `.asa/nodes/issues/`，摘要见 `matrix.issues`，编译清单 `docs/04-issues.md`）。**提出问题时先分流**：
+- 确认为 **bug** → 建修复 `TASK`（`add-task`）并关联本 ISSUE；
+- **需求没写清/有歧义** → 改/补需求文档（`change-req` / `add-req`），结算时以 `resolution.resolvedBy='requirement-update'` 标注；
+- 其余（观察/风险）→ 以 `observation/risk` 记录观察。
+
+**建单**：`node .asa/index.js add-issue "<标题>" [--category bug|requirement-clarification|observation|risk] [--severity P0-P3] [--task <TASK-ID>] [--req <REQ-ID>] [--arch <ARCH-ID>]`（默认 `observation/P2`；`--task/--req/--arch` 自动写 `affects` 依赖边）。
+
+**状态机门禁**：`status ISSUE-xxx <状态>` 沿 `open→triaged→in_progress→resolved→verified`（另有 `cancelled`/`wontfix`）。`→resolved` 必须 `--note "<处置原因>"`；`resolved→verified`、`resolved→open/in_progress`（返工）、`cancelled→open` 均须 `--by <operator>`；`verified` 为验收吸收终态，不可回开。
+
+**自动升单（三处联动，可用 `--no-issue` 关闭）**：`reject-task`（任务被打回）、`confirm-task` 落地门禁被拒（给出 `add-issue` 提示）、`status <TASK> pending|in_progress`（completed 返工回开）都会默认自动建 ISSUE 记录"不合规/实现未落地"。
+
 ## 🧩 增量方法库（按需加载，平时不加载）
 为节省上下文，以下两个方法的【完整规约】默认不加载。**只有用户明确要求开始时**才读取对应文件并严格按其执行（严禁凭记忆跳步）：
 
