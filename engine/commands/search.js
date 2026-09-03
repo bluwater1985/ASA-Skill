@@ -1,6 +1,7 @@
 // engine/commands/search.js — 模糊检索需求节点 (search-req)
 const { loadMatrix, loadAllNodes } = require('../lib/matrix.js');
 const { topCandidates } = require('../lib/similarity.js');
+const io = require('../lib/io.js');
 
 function run(args) {
   const argList = Array.isArray(args) ? args : [args];
@@ -19,9 +20,13 @@ function run(args) {
 
   const results = topCandidates(query, reqs, threshold);
   if (results.length === 0) {
+    if (io.jsonOut({ query, threshold, count: 0, results: [] })) return;
     console.log(`[ASA] 🔍 未找到相似的需求节点 (阈值: ${threshold})`);
     return;
   }
+
+  if (io.jsonOut({ query, threshold, count: results.length,
+    results: results.map(r => ({ id: r.id, title: r.title, score: r.score, status: r.status, version: r.version })) })) return;
 
   console.log(`[ASA] 🔍 模糊检索结果 (阈值: ${threshold}, 匹配到 ${results.length} 个):`);
   for (const item of results) {

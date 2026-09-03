@@ -4,6 +4,7 @@ const path = require('path');
 const { loadMatrix, loadAllNodes, calculateNodesDigest } = require('../lib/matrix.js');
 const { ENGINE_VERSION, MIN_SCHEMA_VERSION } = require('../version.js');
 const { digestLine, basedOnAnchor, NARRATIVE_SYNC_TEMPLATE } = require('../lib/narrative-sync.js');
+const io = require('../lib/io.js');
 
 function run() {
   const matrix = loadMatrix();
@@ -103,6 +104,16 @@ function run() {
   output += `- ${digestLine('当前', currentNodesDigest)}\n`;
   output += `- 锚点写法（可直接照抄）: ${basedOnAnchor(currentNodesDigest)}\n`;
   output += NARRATIVE_SYNC_TEMPLATE;
+
+  if (io.jsonOut({
+    counts: { requirements: reqs.length, architecture: archs.length, tasks: tasks.length, issues: issues.length, openIssues: openIssues.length },
+    architecture: archs.map(a => ({ id: a.id, title: a.title, status: a.status, version: a.version || 1, description: a.description })),
+    archEdges: (matrix.edges || []).filter(e => e.from && e.to && e.from.startsWith('ARCH-') && e.to.startsWith('ARCH-'))
+      .map(e => ({ from: e.from, to: e.to, type: e.type || 'extends' })),
+    lastChanges,
+    nodesDigest: currentNodesDigest,
+    anchor: basedOnAnchor(currentNodesDigest)
+  })) return;
 
   output += `\n注意: 此命令为纯只读，不会修改 00-overview.md 也不修改 02-architecture.md。需求/任务正文请以 docs/01-requirements.md 与 docs/03-tasks.md 为素材；本命令补齐架构、依赖边、lessons 与锚点。\n`;
   

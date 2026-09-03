@@ -23,6 +23,7 @@ const { run: linkTask } = require('./commands/link.js');
 const { run: recordChanges } = require('./commands/record-changes.js');
 const { run: planTasks } = require('./commands/plan.js');
 const { run: overview } = require('./commands/overview.js');
+const { run: board } = require('./commands/board.js');
 const { run: diagnose } = require('./commands/diagnose.js');
 const { run: doctor } = require('./commands/doctor.js');
 const { acquireLock, releaseLock } = require('./lib/lock.js');
@@ -34,7 +35,16 @@ const writeCommands = new Set([
   'confirm-task', 'reject-task', 'cancel-task', 'link-task', 'record-changes'
 ]);
 
-const [,, command, ...args] = process.argv;
+// 全局输出降噪开关：--quiet / -q（抑制信息行）与 --json（汇总命令输出紧凑 JSON）
+// opt-in：仅当命令带这些 flag 时生效，默认输出与旧版逐字节一致。
+const { configure: configureIO } = require('./lib/io.js');
+configureIO(process.argv);
+
+// 从进程参数解析 command，并把全局降噪 flag 从命令的 positional args 中剔除，
+// 避免像 `plan-tasks --json` 那样把 `--json` 误当成人参数（REQ id）。（io 已从 process.argv 读到开关）
+const GLOBAL_FLAGS = new Set(['--quiet', '-q', '--json']);
+const [,, command, ...rawArgs] = process.argv;
+const args = rawArgs.filter(a => !GLOBAL_FLAGS.has(a));
 let isWrite = writeCommands.has(command);
 
 // reconcile 携带 --readonly 或 -r 只读运行时，强行剥离 isWrite，使其完全免除写锁与自愈，物理环境保持 100% 只读 (N1 修复)
@@ -179,13 +189,16 @@ try {
       search(args[0]);
       break;
     case 'list-req':
-      list('req');
+      list('req', args);
       break;
     case 'list-arch':
-      list('arch');
+      list('arch', args);
       break;
     case 'list-task':
-      list('task');
+      list('task', args);
+      break;
+    case 'list-issue':
+      list('issue', args);
       break;
     case 'link-task':
       linkTask(args);
@@ -201,6 +214,9 @@ try {
       break;
     case 'diagnose':
       diagnose();
+      break;
+    case 'board':
+      board(args);
       break;
     case 'doctor':
       doctor();

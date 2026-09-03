@@ -117,6 +117,54 @@ describe('mergeContract — 无标记旧文件（回退 A）', () => {
   });
 });
 
+// ── 老项目升级迁移：新版模板带「分桶聚焦」节，老项目 GEMINI.md 没有 → 合并后自动补入，且保留自定义头/尾、幂等 ──
+describe('mergeContract — 老项目自动补入「分桶聚焦查看」节（选项1 迁移）', () => {
+  const NEW_BLOCK_WITH_BUCKET = `<!-- ASA-CONTRACT-BEGIN: engine=3.x tier=tier2 -->
+## ⚠️ 强制启动序列
+第一步：先读本文件，再跑 diagnose。
+## 📋 AI 协作行为基线铁律
+基线五条。
+## 🔍 聚焦查看（分桶）：默认只看未完成
+- \`board\` / \`list-task --active\` 默认只看未完成；已归档默认隐藏。
+<!-- ASA-CONTRACT-END -->`;
+
+  it('老项目（无分桶节、有标记）合并后自动带上新节，且保留自定义头/尾', () => {
+    const existing = `# 项目头部标题
+项目头部自定义说明
+<!-- ASA-CONTRACT-BEGIN: engine=2.x tier=tier2 -->
+## ⚠️ 强制启动序列
+旧的启动序列
+## 📋 AI 协作行为基线铁律
+旧的基线
+<!-- ASA-CONTRACT-END -->
+## 项目自定义尾部
+这是在契约区外用户手写的专有规约
+`;
+    const merged = mergeContract(existing, NEW_BLOCK_WITH_BUCKET);
+    assert.ok(merged.includes('聚焦查看（分桶）'), '老项目应自动补入分桶聚焦节');
+    assert.ok(merged.includes('board'), '新节命令说明被带入');
+    assert.ok(merged.includes('项目头部自定义说明'), '头部自定义保留');
+    assert.ok(merged.includes('这是在契约区外用户手写的专有规约'), '契约区外用户内容保留');
+    assert.ok(!merged.includes('旧的启动序列'), '旧标准段被替换');
+  });
+
+  it('合并后再次判断 → contractUnchanged=true（幂等，不重复追加）', () => {
+    // 模拟合并后的结果即为"最新契约区块"，再判应跳过
+    assert.equal(contractUnchanged(NEW_BLOCK_WITH_BUCKET, NEW_BLOCK_WITH_BUCKET), true);
+    // 老文件仍然缺 → false（仍需升级）
+    const old = '# h\n<!-- ASA-CONTRACT-BEGIN: engine=2.x tier=tier2 -->\n## ⚠️ 强制启动序列\n旧\n<!-- ASA-CONTRACT-END -->\n';
+    assert.equal(contractUnchanged(old, NEW_BLOCK_WITH_BUCKET), false);
+  });
+
+  it('detectFallbackRegion 将「分桶聚焦」视为标准章节（回退 A 兼容）', () => {
+    const text = `# h\n## ⚠️ 强制启动序列\nA\n## 🔍 聚焦查看（分桶）\nB\n## 用户尾巴\nC\n`;
+    const r = detectFallbackRegion(text);
+    assert.ok(r);
+    assert.equal(r.start, text.indexOf('## ⚠️ 强制启动序列'));
+    assert.equal(r.end, text.indexOf('## 用户尾巴'));
+  });
+});
+
 describe('detectFallbackRegion', () => {
   it('定位首个到末个标准章节标题行', () => {
     const text = `# 标题\n前文\n## ⚠️ 强制启动序列\nA\n## 📋 AI 协作行为基线铁律\nB\n## 用户尾巴\nC\n`;

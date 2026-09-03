@@ -4,9 +4,10 @@ const path = require('path');
 const { loadMatrix, calculateDocsDigest, loadAllNodes, calculateNodesDigest } = require('../lib/matrix.js');
 const { hasPendingPropagation } = require('../lib/changelog.js');
 const { NARRATIVE_SYNC_TEMPLATE } = require('../lib/narrative-sync.js');
+const io = require('../lib/io.js');
 
 function run(args) {
-  const isJson = args && args.includes('--json');
+  const isJson = (args && args.includes('--json')) || io.isJson();
 
   const blockingErrors = [];
   const warnings = [];
@@ -184,6 +185,38 @@ function run(args) {
         message: `ℹ️ 未关闭问题 ${issueId}（${issueNode.status}）: ${issueNode.title || ''}。请分流处置（建修复 TASK / 补需求文档 / 观察）。`,
         id: issueId
       });
+    }
+
+    // ── 5.7 精髓保真闸门 SPEC_WITHOUT_AC ──
+    // 防止"只贴文档 spec、却不提炼可验证断言为验收标准"的拆解：REQ 落盘了有实质内容的
+    // spec（code 类需求）却没有 acceptanceCriteria → 可验证断言无处安放，精髓易丢。
+    for (const [reqId, reqNode] of reqs) {
+      const hasSpec = typeof reqNode.spec === 'string' && reqNode.spec.trim().length > 0;
+      const docLike = ['doc', 'docs', 'documentation', 'process'].includes(String(reqNode.deliveryType || 'code').toLowerCase());
+      const ac = Array.isArray(reqNode.acceptanceCriteria) ? reqNode.acceptanceCriteria : [];
+      const archived = ['deprecated', 'cancelled', 'wontfix'].includes(reqNode.status || '');
+      if (hasSpec && !docLike && !archived && ac.length === 0) {
+        warnings.push({
+          code: 'SPEC_WITHOUT_AC',
+          message: `需求 ${reqId} 已落盘 spec 却没有 acceptanceCriteria。请按 .asa/rules/decompose.md 先把文档的可验证断言提炼成验收标准（add-req --spec 携带 ## Acceptance Criteria），否则闭环验收缺失、精髓易丢。`,
+          id: reqId
+        });
+      }
+    }
+
+    // ── 5.8 精髓保真闸门 TASK_NO_IO ──
+    // 防止"先建节点、再手工回填"或"只贴标题"的任务：实现型任务未声明 inputs/outputs
+    // （可交付物 / oracle 所在）→ 任务无从验证、精髓语义丢失。
+    for (const [taskId, taskNode] of tasks) {
+      const inputs = Array.isArray(taskNode.inputs) ? taskNode.inputs : [];
+      const outputs = Array.isArray(taskNode.outputs) ? taskNode.outputs : [];
+      if (taskNode.status !== 'cancelled' && inputs.length === 0 && outputs.length === 0) {
+        warnings.push({
+          code: 'TASK_NO_IO',
+          message: `任务 ${taskId} 未声明 inputs/outputs。请按 .asa/rules/to-tickets.md 一次写全（add-task --desc/--inputs/--outputs），避免可交付物 / oracle 语义丢失。`,
+          id: taskId
+        });
+      }
     }
 
     // 6. 统一输出结果

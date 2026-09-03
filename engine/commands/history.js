@@ -1,5 +1,6 @@
 // engine/commands/history.js — 单节点变更沿革
 const { loadAllNodes } = require('../lib/matrix.js');
+const io = require('../lib/io.js');
 
 function run(id) {
   if (!id) {
@@ -22,6 +23,8 @@ function run(id) {
   console.log('');
 
   const log = node.changeLog || [];
+  if (io.jsonOut({ id, title: node.title, status: node.status, version: node.version || 1, changeLog: log })) return;
+
   if (log.length === 0) {
     console.log('  (暂无变更记录)');
     return;

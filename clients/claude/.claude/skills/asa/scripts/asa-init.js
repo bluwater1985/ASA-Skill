@@ -37,16 +37,22 @@ function backupPath(file) {
 //   'error'             → 无法定位标准契约段 / 合并模块缺失，调用方应保守保留原文件
 //   { backup, text }    → 已做备份，text 为合并后的完整内容
 function mergeContractFile(mdPath, templateText) {
-  if (!mergeMod) return 'error';
-  const tb = mergeMod.extractContractBlock(templateText);
-  if (!tb) return 'error';
-  const existingText = fs.readFileSync(geminiMdPath, 'utf-8');
-  if (mergeMod.contractUnchanged(existingText, tb.block)) return 'skip';
-  const merged = mergeMod.mergeContract(existingText, tb.block);
-  if (merged === null) return 'error';
-  const backup = backupPath(geminiMdPath);
-  fs.copyFileSync(geminiMdPath, backup);
-  return { backup, text: merged };
+  try {
+    if (!mergeMod) return 'error';
+    const tb = mergeMod.extractContractBlock(templateText);
+    if (!tb) return 'error';
+    const existingText = fs.readFileSync(mdPath, 'utf-8');
+    if (mergeMod.contractUnchanged(existingText, tb.block)) return 'skip';
+    const merged = mergeMod.mergeContract(existingText, tb.block);
+    if (merged === null) return 'error';
+    const backup = backupPath(mdPath);
+    fs.copyFileSync(mdPath, backup);
+    return { backup, text: merged };
+  } catch (e) {
+    // 任何未预期异常（如旧版引擎缺字段）都降级为保守跳过，绝不因合并失败中断整个初始化
+    console.warn(`⚠️  GEMINI.md 契约合并异常已降级保留原文件: ${e && e.message}`);
+    return 'error';
+  }
 }
 
 // 检测是否重跑

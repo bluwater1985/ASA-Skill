@@ -1,5 +1,6 @@
 // engine/commands/journal.js — 全项目变更历史
 const { loadAllNodes } = require('../lib/matrix.js');
+const io = require('../lib/io.js');
 
 function run() {
   const nodes = loadAllNodes();
@@ -25,9 +26,12 @@ function run() {
   entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   if (entries.length === 0) {
+    if (io.jsonOut({ count: 0, records: [] })) return;
     console.log('[ASA] 暂无变更记录');
     return;
   }
+
+  if (io.jsonOut({ count: entries.length, records: entries })) return;
 
   console.log(`[ASA] 全项目变更历史 (${entries.length} 条记录)\n`);
   console.log('日期       节点      版本  类型            操作者  摘要');

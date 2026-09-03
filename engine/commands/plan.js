@@ -1,5 +1,6 @@
 // engine/commands/plan.js — 任务拓扑编排 (plan-tasks)
 const { loadMatrix, loadAllNodes } = require('../lib/matrix.js');
+const io = require('../lib/io.js');
 
 function run(args) {
   const matrix = loadMatrix();
@@ -146,6 +147,16 @@ function run(args) {
       }
     }
   }
+
+  if (io.jsonOut({
+    targetReq: targetReqId || null,
+    ready: ready.sort(),
+    awaiting: awaiting.sort(),
+    blocked: blocked.sort(),
+    blockedBy,
+    recommendedOrder: order,
+    hasCycle
+  })) return;
 
   // 7. 格式化控制台输出
   let output = `[ASA 任务拓扑编排计划]${targetReqId ? ` (针对需求: ${targetReqId})` : ''}\n\n`;

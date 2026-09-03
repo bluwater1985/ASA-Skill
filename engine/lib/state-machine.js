@@ -85,8 +85,44 @@ function getAllowedTransitions(id, current) {
   return TRANSITIONS[type][current] || [];
 }
 
+/**
+ * 查看层「分桶」定义 —— compile / list / board 共用的唯一口径。
+ *
+ * 桶语义（三层，而非简单二分）：
+ *   - active    未完成（焦点）：默认只展示这一桶让人集中注意力
+ *   - done      已完成（沉底归档）：可查但不在眼前
+ *   - archived  废弃/取消（噪音）：默认隐藏；cancelled/rejected/deprecated/wontfix 等
+ *               既不算「未完成」也不算「已做」，应默认不显示
+ *
+ * 未知状态一律归入 active（宁可多显示也不愿你漏看该干的事）。
+ */
+const BUCKETS = {
+  REQ: { active: ['proposed', 'approved', 'modified'], done: ['implemented'], archived: ['rejected', 'deprecated'] },
+  ARCH: { active: ['draft', 'reviewed'], done: ['approved'], archived: ['superseded'] },
+  TASK: { active: ['pending', 'in_progress', 'blocked', 'awaiting-confirmation'], done: ['completed', 'verified'], archived: ['cancelled'] },
+  ISSUE: { active: ['open', 'triaged', 'in_progress', 'blocked'], done: ['resolved', 'verified'], archived: ['wontfix', 'cancelled'] },
+};
+
+/**
+ * 纯只读分桶判定：输入节点类型 + 状态 → 'active' | 'done' | 'archived'
+ * @param {string} type - "REQ" / "TASK" / "ARCH" / "ISSUE"
+ * @param {string} [status]
+ * @returns {'active'|'done'|'archived'}
+ */
+function getBucket(type, status) {
+  const rules = BUCKETS[type];
+  if (!rules) return 'active';
+  const s = status || 'pending';
+  if (rules.active.includes(s)) return 'active';
+  if (rules.done.includes(s)) return 'done';
+  if (rules.archived.includes(s)) return 'archived';
+  return 'active';
+}
+
 module.exports = {
   TRANSITIONS,
   validateTransition,
   getAllowedTransitions,
+  BUCKETS,
+  getBucket,
 };

@@ -4,6 +4,8 @@
 > 一旦被触发，本文件全部约束成为本会话的活跃约束；会话结束后自动失效，下次需重新触发。
 >
 > 对应 CLI：`node .asa/index.js add-req` / `search-req`。产出物落盘于 `.asa/nodes/requirements/REQ-xxx.yaml`。
+>
+> **拆文档先看 decompose**：当本需求是从一份设计/修复/规格文档拆解而来时，先按 `.asa/rules/decompose.md` 抽取断言清单，并保证 `acceptanceCriteria` 由断言生成（不要只贴原文、空着 AC）；结束跑 `validate` 自检 `SPEC_WITHOUT_AC`。
 
 ---
 

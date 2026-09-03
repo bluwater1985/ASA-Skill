@@ -38,15 +38,22 @@ gemini chat
 # 运行 /asa init 或自然语言说 "初始化 ASA"
 ```
 
-### 升级引擎
+### 升级引擎（含老项目契约升级）
 
 ```bash
-# 拉取最新代码仓库，重新运行一键安装
+# 第 1 步：拉取最新代码仓库，重新运行一键安装（把最新引擎 + 模板部署到 ~/.asa）
 node install.js
 
-# 若要就地升级已初始化的特定项目，可以对该项目重跑初始化（不会覆盖已有项目数据）
-node ~/.gemini/skills/asa/scripts/asa-init.js tier2
+# 第 2 步：要就地升级已初始化的特定项目，则在该项目目录对该项目重跑初始化
+node ~/.gemini/skills/asa/scripts/asa-init.js tier2   # 按你的客户端对应路径
 ```
+
+> **老项目如何获得新契约特性（两步）**
+> 引擎层面的新命令（如 `board` 聚焦看板、`list-task` 分桶、`compile` 分组归档）是纯代码，**所有项目立刻可用**，与是否重跑无关。
+> 但「启动时告诉 AI 的规矩」（写在 `GEMINI.md` 契约区、含「🔍 聚焦查看（分桶）」节）只随模板下发，老项目需：
+> 1. **先** `node install.js` 一次，把含新节的模板刷新到 `~/.asa/templates/`；
+> 2. 再在项目里重跑 `asa-init` —— 会**自动把新节合入该项目 `GEMINI.md`**（仅替换标准契约区、保留你在契约区外手写的内容，改前自动备份 `.bak.<时间戳>`）。
+> 重跑绝不覆盖项目数据（`nodes/`）、且契约合并幂等（已一致则跳过，不重复追加）。
 
 ---
 
@@ -123,7 +130,7 @@ ASA 通过“需求（REQ）→ 架构（ARCH）→ 任务（TASK） → 实现 
 | **自愈与诊断**| `node .asa/index.js diagnose` | 快速、**纯只读**自检。不加锁、不改变 mtime，自动发现断电半写未完结事务。 |
 | | `node .asa/index.js doctor` | 全面深度系统健康审计。全维检测损坏格式、环路、任务孤岛与空悬边。 |
 | | `node .asa/index.js reconcile` | 核心事务对账，当 `matrix.yaml` 丢失或被破坏时通过 nodes 自动自举重建。 |
-| **文档同步** | `node .asa/index.js compile` | 节点 → Markdown。完美合并保留手写头尾散文，支持叙事型文档哈希解耦。 |
+| **文档同步** | `node .asa/index.js compile` | 节点 → Markdown。**按「未完成 / 已完成」分桶归档**：未完成节点排在前、已完成节点沉底归档（`## ✅ 已完成…`），已归档（取消/废弃）默认不渲染、仅统计行计数；顶部输出 `共 N · 未完成 X · 已完成 Y · 已归档 Z`。完美合并保留手写头尾散文，支持叙事型文档哈希解耦。 |
 | | `node .asa/index.js patch` | Markdown → 节点。反向提取 docs 内人工修改的 `acceptanceCriteria` 同步写回。 |
 | | `node .asa/index.js validate [--json]` | CI/CD 静态验证。指纹校验、节点漂移扫描、以及未处理传播动作审查。 |
 | **拓扑编排** | `node .asa/index.js plan-tasks` | 对所有非取消任务按依赖边进行拓扑排序，给出完美的阶段性并行实施规划。 |
@@ -147,6 +154,26 @@ ASA 通过“需求（REQ）→ 架构（ARCH）→ 任务（TASK） → 实现 
 | | `node .asa/index.js record-changes <TASK> <files>`| 记录特定任务所产生的代码变动文件清单。 |
 | | `node .asa/index.js update-overview` | 快速输出项目状态与节点完成度统计。**纯只读、不加锁**，不干扰主 IDE。 |
 | | `node .asa/index.js journal` / `history <id>`| 全局历史和单点历史深度沿革溯源。 |
+| **聚焦查看（分桶）**| `node .asa/index.js board [REQ-xxx]` | **聚焦看板**：只把「未完成任务」按状态分组摊开（⏳待办 / 🔨进行中 / ⛔阻塞 / 🙋待确认），blocked 标出阻塞来源、待确认高亮；已完成/已归档仅计数。纯只读、不加锁。可 `board REQ-002` 只看某需求。 |
+| | `node .asa/index.js list-task [--active\|--done\|--archived\|--all]` | 任务简清单，**默认只列未完成**（active 桶）；`--done` 只列已完成、`--archived` 只列已归档、`--all` 全量，附 `共 N · 未完成 X · 已完成 Y · 已归档 Z` 计数。`list-req` / `list-arch` / `list-issue` 同理。 |
+
+> 分桶机制详见下方「4.1 聚焦：完成 / 未完成分桶查看」。
+
+### 4.1 聚焦：完成 / 未完成分桶查看
+
+大项目节点一多，长年积压的已完成 / 已取消项目会把「该干什么」淹没。为此引入**三层分桶**，把「未完成任务」和「已完成」分开，让人集中注意力到未完成。唯一口径在 `engine/lib/state-machine.js` 的 `getBucket(type, status)`，`compile` / `list` / `board` 三处共用，不会口径漂移：
+
+| 桶 | TASK | REQ | ISSUE | 人的注意力定位 |
+|----|------|-----|-------|----------------|
+| 🟢 **未完成** | pending / in_progress / blocked / awaiting-confirmation | proposed / approved / modified | open / triaged / in_progress / blocked | **默认只看这一桶** |
+| ✅ **已完成** | completed / verified | implemented | resolved / verified | 可查、沉底归档，不在眼前 |
+| 🗄️ **已归档** | cancelled | rejected / deprecated | wontfix / cancelled | 噪音，默认隐藏，仅计数 |
+
+- **默认即聚焦**：`list-task` 默认只列未完成；`board` 只摊未完成。已完成用 `--done` 看，全量用 `--all` 看。
+- **数据零改动**：分桶是查看层的**只读派生**，`nodes/*.yaml`、`matrix.yaml`、依赖边一字不改，随时可回退成扁平展示。
+- **compile 分组归档**：`docs/03-tasks.md`（及 01/04）仍是**单个文件**，内部 `## 🟢 未完成…` 在前、`## ✅ 已完成…（沉底归档）` 沉底 + 顶部统计行。节点不删、不拆、不搬，手写批注跨分区存活，连续 `compile` 幂等。
+- **cancelled 不算「未完成」也不算「已做」**：单列到 archived 默认不显示，避免噪音干扰；需要时用 `list-task --archived` 查。
+- **机器可读**：`board` / `list` 均支持 `--json` 输出（含每个节点的 bucket 与计数）。
 
 ---
 
@@ -246,7 +273,8 @@ ASA 通过“需求（REQ）→ 架构（ARCH）→ 任务（TASK） → 实现 
         ├── nodes/             # 真实分布式节点数据库（严禁由外部手动物理删除）
         │     ├── requirements/
         │     ├── architecture/
-        │     └── tasks/
+        │     ├── tasks/
+        │     └── issues/       # Schema v4：问题节点（open/triaged/..., verified 吸收终态）
         ├── transactions/      # ACID 崩溃自愈临时脏事务备份池
         └── backups/           # 变更请求生成的节点历史快照库
 ```

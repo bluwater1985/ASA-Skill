@@ -82,6 +82,10 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 | `add-issue <title> [--category <bug\|requirement-clarification\|observation\|risk>] [--severity P0-P3] [--task <id>] [--req <id>] [--arch <id>]` | 新增问题节点（Schema v4） | 第 4 类节点 `ISSUE-xxx`，默认 `observation / P2`。提出问题时**先分流**：bug → 建修复 TASK；需求没写清 → 改/补需求文档；否则以 observation/risk 观察。`--task/--req/--arch` 自动写 `affects` 边。 |
 | `status ISSUE-xxx <状态>` | ISSUE 状态机推进 | `open→triaged→in_progress→resolved→verified`，另有 `cancelled/wontfix`。`→resolved` 须 `--note "<处置>"`；`resolved→verified`、`resolved→open/in_progress`、`cancelled→open` 须 `--by`；`verified` 为吸收终态。 |
 | `update-overview` | 只读项目总览摘要 | **不写盘**。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材，问题清单用 `docs/04-issues.md`；本命令仅补齐架构/依赖边/lessons，并输出 `Nodes Digest (当前)`、可直接照抄的 `ASA-BASED-ON` 锚点与重写操作模板。 |
+| `board [REQ-xxx]` | 聚焦看板（只读、不加锁） | 只把「未完成任务」按状态分组摊开（⏳待办/🔨进行中/⛔阻塞/🙋待确认），blocked 标出阻塞来源；已完成/已归档仅计数。可 `board REQ-xxx` 只看某需求。 |
+| `list-task [--active\|--done\|--archived\|--all]` | 分桶简清单 | **默认只列未完成**（active 桶）；`--done`/`--archived`/`--all` 切换，附 `共 N · 未完成 X · 已完成 Y · 已归档 Z` 计数；`list-req`/`list-arch`/`list-issue` 同理。 |
+
+> **分桶口径**：🟢未完成（焦点，默认展示）/ ✅已完成（done，沉底归档）/ 🗄️已归档（cancelled/deprecated/wontfix，默认隐藏）。桶判定唯一在 `getBucket()`（状态机），勿自行臆断完成与否；`compile` 后 `docs/03-tasks.md`（及 01/04）已分两区——`## 🟢 未完成…` 在前、`## ✅ 已完成…（沉底归档）`，已归档默认不渲染。
 
 ## 📄 叙事文档重写闭环（00-overview / 02-architecture）
 

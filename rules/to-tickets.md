@@ -12,6 +12,8 @@
 ### 1. 收集上下文
 从对话 / Spec（必要时读取已落盘的 REQ 节点 `spec` 与 `acceptanceCriteria`）/ plan 出发，理解要拆解的对象。
 
+> **拆文档先看 decompose**：若本批任务是从一份设计/修复/规格文档拆解而来，先按 `.asa/rules/decompose.md` 抽取断言清单并建覆盖矩阵，再从 C# 断言出发做垂直切片，保证每个切片声明其覆盖的断言与 inputs/outputs（结束跑 `validate` 自检 `TASK_NO_IO`）。
+
 ### 2. 探索 codebase（可选）
 若尚未探索，先理解代码现状。寻找可 **prefactor（前置重构）** 的机会，让实现更易做——「先把改动变容易，再做容易的改动」。
 
