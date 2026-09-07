@@ -9,6 +9,29 @@ const io = require('../lib/io.js');
 function run(args) {
   const isJson = (args && args.includes('--json')) || io.isJson();
 
+  // —— D: validate 去重门禁（省调用）——
+  // `validate --skip-if-fresh`：若在 120s 内已有一次「通过」的 validate（如 CI/pre-commit 刚跑），
+  // 直接跳过本次重复校验并退出 0。CI / pre-commit 用不带此 flag 的 validate，始终真跑。
+  const skipIfFresh = !!(args && Array.isArray(args) && args.includes('--skip-if-fresh'));
+  const TS_PATH = path.join(process.cwd(), '.asa', 'transactions', 'last-validate.ts');
+  const isFresh = () => {
+    try {
+      if (!fs.existsSync(TS_PATH)) return false;
+      const prev = parseInt(fs.readFileSync(TS_PATH, 'utf-8'), 10);
+      return Number.isFinite(prev) && (Date.now() - prev) < 120000;
+    } catch (e) { return false; }
+  };
+  const stampOk = () => {
+    try {
+      fs.mkdirSync(path.dirname(TS_PATH), { recursive: true });
+      fs.writeFileSync(TS_PATH, String(Date.now()), 'utf-8');
+    } catch (e) {}
+  };
+  if (skipIfFresh && isFresh()) {
+    console.log('[ASA] validate: 已由近期一次“通过”校验覆盖（<120s），跳过重复校验（如需强制重跑，去掉 --skip-if-fresh）');
+    process.exit(0);
+  }
+
   const blockingErrors = [];
   const warnings = [];
 
@@ -236,7 +259,9 @@ function run(args) {
         }
       };
       console.log(JSON.stringify(resultJson, null, 2));
-      process.exit(isBlocked ? 1 : 0);
+      if (isBlocked) process.exit(1);
+      stampOk();
+      process.exit(0);
     } else {
       // 纯文本友好展示
       if (warnings.length > 0) {
@@ -256,6 +281,7 @@ function run(args) {
         process.exit(1);
       } else {
         logStatus('=== 🟢 [ASA validate] 完美！全量健康检查通过 ===');
+        stampOk();
         process.exit(0);
       }
     }

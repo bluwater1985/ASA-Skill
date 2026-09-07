@@ -28,6 +28,27 @@ function findProjectRoot(startDir) {
 
 const SCRIPT_DIR = path.dirname(process.argv[1] || '.');
 
+// 计算「就绪前沿」：未完成(非 awaiting)且 depends 入度为 0 的 TASK，供会话开头直接认领（免跑 plan-tasks）
+function computeFrontier(matrix) {
+  const tasks = matrix.tasks || {};
+  const DONE = new Set(['completed','verified','cancelled','deprecated','wontfix','done','archived']);
+  const ids = Object.keys(tasks).filter(id => {
+    const s = tasks[id] && tasks[id].status;
+    return s && !DONE.has(s) && s !== 'awaiting-confirmation';
+  });
+  const inDeg = {};
+  for (const id of ids) inDeg[id] = 0;
+  for (const e of (matrix.edges || [])) {
+    if (!e || e.type !== 'depends') continue;
+    const froms = Array.isArray(e.from) ? e.from : [e.from];
+    const tos = Array.isArray(e.to) ? e.to : [e.to];
+    for (const f of froms) for (const t of tos) {
+      if (ids.includes(f) && ids.includes(t) && inDeg[t] !== undefined) inDeg[t]++;
+    }
+  }
+  return ids.filter(id => inDeg[id] === 0).sort();
+}
+
 function run() {
   // 1. 优先读取 stdin 传递的 cwd 以定位项目
   let data = '';
@@ -70,13 +91,13 @@ function executeDiagnostics(projectRoot) {
     process.exit(0);
   }
 
-  let matrix = null; // 作用域提升：将 executeDiagnostics 内 of matrix 变量声明由块级（const）提升为函数级首部的 let matrix = null;
-
+  let matrix = null;
   try {
     const text = fs.readFileSync(matrixPath, 'utf-8');
 
-    // 2. 结构化加载并解析 YAML
     let awaitingCount = 0;
+    let openTaskCount = 0;
+    let openIssueCount = 0;
     let phase = 'discovery';
     let activeTask = '(none)';
 
@@ -85,11 +106,18 @@ function executeDiagnostics(projectRoot) {
         matrix = parseAsaYaml(text);
         phase = matrix.meta?.phase || 'discovery';
         activeTask = matrix.meta?.activeTask || '(none)';
+        const DONE = new Set(['completed','verified','cancelled','deprecated','wontfix','done','archived']);
         if (matrix.tasks) {
           for (const task of Object.values(matrix.tasks)) {
-            if (task.status === 'awaiting-confirmation') {
-              awaitingCount++;
-            }
+            const s = task.status;
+            if (s === 'awaiting-confirmation') awaitingCount++;
+            if (s && !DONE.has(s)) openTaskCount++;
+          }
+        }
+        if (matrix.issues) {
+          for (const it of Object.values(matrix.issues)) {
+            const s = it.status;
+            if (s && s !== 'resolved' && s !== 'verified' && s !== 'cancelled' && s !== 'wontfix') openIssueCount++;
           }
         }
       } catch (yamlErr) {
@@ -98,9 +126,19 @@ function executeDiagnostics(projectRoot) {
       }
     }
 
-    console.log(`[ASA STATUS] Phase: ${phase} | ActiveTask: ${activeTask} | AwaitingConfirmation: ${awaitingCount}`);
+    let activeTitle = '';
+    if (activeTask !== '(none)' && matrix && matrix.tasks && matrix.tasks[activeTask]) {
+      activeTitle = String(matrix.tasks[activeTask].title || '');
+    }
 
-    // 3. 引用底层计算并显式传入 projectRoot 参数
+    console.log(`[ASA STATUS] Phase: ${phase} | ActiveTask: ${activeTask}${activeTitle ? ` (${activeTitle})` : ''} | OpenTasks: ${openTaskCount} | AwaitingConfirmation: ${awaitingCount} | OpenIssues: ${openIssueCount}`);
+
+    const frontier = computeFrontier(matrix);
+    console.log(`[ASA NEXT] readyTasks: ${frontier.length ? frontier.join(', ') : '(none)'}`);
+
+    const warnings = [];
+
+    // 引用底层计算并显式传入 projectRoot 参数
     let calculateNodesDigest = null;
     let calculateDocsDigest = null;
     try {
@@ -118,7 +156,7 @@ function executeDiagnostics(projectRoot) {
 
       // 1. 01/03 编译摘要比对
       if (docsExpectedDigest !== docsActualDigest) {
-        console.log(`[ASA STATUS] ⚠️ 编译文档已发生篡改或过期，请运行 compile 重新对账。`);
+        warnings.push(`编译文档已过期或篡改，请运行 compile 重新对账`);
       }
 
       // 2. 00/02 叙事概览/设计锚点比对
@@ -141,11 +179,19 @@ function executeDiagnostics(projectRoot) {
       checkDocBasedOn('02-architecture.md');
 
       if (narrativeExpired) {
-        console.log(`[ASA STATUS] ⚠️ 叙事概览/架构设计（00/02）已过期，请运行 update-overview 重新生成并交由模型更新。`);
+        warnings.push(`叙事概览/架构设计（00/02）已过期，请运行 update-overview 重新生成`);
       }
     }
+
+    if (warnings.length) {
+      warnings.forEach(w => console.log(`[ASA STATUS] ⚠️ ${w}`));
+      console.log(`[ASA ACTION] 按上面告警做最小动作后继续；无需额外跑 diagnose/doctor。`);
+    } else {
+      console.log(`[ASA READY] 健康无告警：沿用以上状态继续，勿额外跑 diagnose/list/validate。`);
+    }
   } catch (e) {
-    // 捕获可能抛出的 ReferenceError，防止默默崩溃
+    // 捕获可能抛出的异常，防止默默崩溃
+    console.log(`[ASA STATUS] 自检异常已忽略，继续。`);
   }
 
   process.exit(0);

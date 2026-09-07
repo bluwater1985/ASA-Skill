@@ -44,6 +44,32 @@ function txWriteYaml(filePath, data, txId) {
   atomicWriteYaml(filePath, data);
 }
 
+// 存量节点「格式归一化」：旧版把多行字符串（如 spec）压成单行转义，新版用字面量块 `|-` 让 raw 文件可读。
+// 幂等：仅当重序列化结果与当前文件字节不同才重写（首次把旧单行 spec 刷成块格式，之后 no-op）。
+function normalizeNodeFormats(nodes, txId) {
+  let rewritten = 0;
+  for (const [id, node] of Object.entries(nodes)) {
+    const cat = node.__category;
+    if (!cat) continue;
+    const p = path.join(process.cwd(), `.asa/nodes/${cat}/${id}.yaml`);
+    if (!fs.existsSync(p)) continue;
+    const current = fs.readFileSync(p, 'utf-8');
+    delete node.__category;
+    const serialized = stringifyAsaYaml(node);
+    node.__category = cat;
+    if (serialized !== current) {
+      delete node.__category;
+      txWriteYaml(p, node, txId);
+      node.__category = cat;
+      rewritten++;
+    }
+  }
+  if (rewritten > 0) {
+    console.log(`  ✓ 已把 ${rewritten} 个节点的多行字段重写为块标量格式（raw 文件人可直接读）`);
+  }
+  return rewritten;
+}
+
 // 全量物理级备份（含 matrix, nodes 目录和 docs 目录）
 function backupAllData() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -382,6 +408,7 @@ function run(args) {
   }
 
     // 从 nodes/ 重建摘要索引（以节点文件为准）
+    normalizeNodeFormats(nodes, recTxId); // 存量多行字段 → 块标量（可读）
     rebuildSummary(matrix, nodes);
     
     // P2-3 修复：在非迁移常规自愈对账路径中，也同步将 nodesDigest 和 compiledDocsActualDigest 双向对齐！

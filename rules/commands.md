@@ -21,7 +21,22 @@
 【6. 审核】	(人) confirm-task / reject-task 裁决 → 进入下一任务
 ```
 
-> 批处理建议：把多个 ASA 命令用 `;` 拼到同一次终端调用里（如 `add-req ... ; add-task ... ; edge add ... ; plan-tasks`），能显著减少 LLM 回合数与上下文噪音。
+> 批处理建议：把多个 ASA 命令用 `;` 拼到同一次终端调用里（如 `add-req ... ; add-task ... ; edge add ... ; plan-tasks`），能显著减少 LLM 回合数与上下文噪音。**一键拼接模板见 `call-minimization.md`（按需加载）。**
+
+---
+
+## 1.5 组合命令（省调用核心 · 一次调用 = 多步）
+
+| 命令 | 一次完成 | 原 → 现 |
+|---|---|---|
+| `flow add <REQ标题> <TASK标题> [--desc/--inputs/--outputs]` | add-req + add-task(关联) + edge + plan-tasks | 4 → 1 |
+| `flow begin <TASK> [phase]` | set phase + set active-task + in_progress | 3 → 1 |
+| `flow ship <TASK> <files...>` | record-changes + awaiting-confirmation + set active-task clear + compile + validate（失败原子回滚） | 5 → 1 |
+| `flow sync-docs` | compile + validate | 2 → 1 |
+| `batch '{"ops":[...]}'` 或 `| batch -` | 任意多条操作顺序执行 | N → 1 |
+| `cost [--json]` | 只读估算归因于 ASA 的模型调用次数 | 只读 |
+
+> `flow` / `batch` 都走**单个写事务**，任一步失败整体回滚，不会留下半成品。模型应优先用它们，`;` 仅作引擎命令组合的补充。
 
 ---
 
@@ -30,7 +45,7 @@
 ### 诊断 / 自愈
 | 命令 | 作用 | 说明 |
 |---|---|---|
-| `diagnose` | 纯只读自检 | 不写盘、不加锁；探测崩溃脏事务与健康度。会话开始必跑 |
+| `diagnose` | 纯只读自检 | 不写盘、不加锁；探测崩溃脏事务与健康度。会话状态已由 SessionStart 注入，**仅在出现告警时才跑**（懒启动） |
 | `doctor` | 一键深度审计 | 坏格式 / 环路边 / 任务孤岛 / 失效依赖 / 未完传播 |
 | `reconcile` | 事务对账 + 自举 | 内含 `rollbackAllIncomplete()` 自动自愈；matrix 缺失时自举重建。`-r/--readonly` 只读 |
 
@@ -39,7 +54,7 @@
 |---|---|
 | `compile` | 节点 → docs/ Markdown（00/02 叙事型不参与哈希强校验） |
 | `patch` | docs → 节点反写（验收标准等） |
-| `validate [--json]` | CI 门禁：文档哈希 / 节点漂移 / 未完传播（Tier3 强校验） |
+| `validate [--json] [--skip-if-fresh]` | CI 门禁：文档哈希 / 节点漂移 / 未完传播（Tier3 强校验）。`--skip-if-fresh`：120s 内已有一次“通过”校验（如 CI 刚跑）则跳过重复校验 |
 | `traverse <id>` | BFS 拓扑遍历，输出下游影响层级 JSON |
 | `update-overview` | 纯只读项目总览 + Nodes Digest + 叙事锚点 |
 

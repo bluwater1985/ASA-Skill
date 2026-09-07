@@ -70,6 +70,8 @@ node ~/.gemini/skills/asa/scripts/asa-init.js tier2 --force
 > - **`.gemini/settings.json`** → 按 Hook `name` 精准更新，不重复注册
 > - **`index.js` + `hooks/`** → 引擎文件始终更新到最新
 
+> **节点文件格式**：`nodes/*.yaml` 里的多行字段（REQ 的 `spec`、TASK 的 `description` 等）以 **YAML 字面量块 `|-`** 存储——标记下行即是原始 Markdown，直接打开 raw 文件即可读，`#`/`: `/列表都不会被当注释或压扁。存量旧「单行转义」格式会在 `reconcile` 时**自动归一化为块格式**（幂等、事务安全、可回滚）。
+
 ### Step 3（备选）：手动搭建
 
 如果初始化脚本不可用，按以下步骤手动搭建：
@@ -164,6 +166,25 @@ edges: []
 }
 ```
 
+#### 配置 SessionStart Hook（Tier 2/3 需要 · 省调用核心）
+初始化脚本会在 `.gemini/settings.json` 的 `hooks.SessionStart` 自动注册会话状态注入：
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "name": "asa-session-start",
+        "hooks": [ { "type": "command", "command": "node .asa/hooks/session-start.js" } ],
+        "description": "ASA: 会话状态注入（免跑 diagnose/list）"
+      }
+    ]
+  }
+}
+```
+
+> **省调用**：SessionStart 启动时注入 `[ASA STATUS]`（Phase/OpenTasks/Awaiting/OpenIssues）+ `[ASA READY]` 或 `[ASA ACTION]`。模型据此**不再跑 diagnose/list/validate**，实现「懒启动 ≤1 次调用/会话」。更多一键拼接模板见 `.asa/rules/call-minimization.md`（按需加载）。
+
 #### 配置 pre-commit Hook（Tier 2/3 需要）
 
 ```bash
@@ -253,3 +274,6 @@ chmod +x .husky/pre-commit
 - 用户**明确说要做任务拆解 / 拆 tickets**时 → 读取并严格执行 `.asa/rules/to-tickets.md`（Tracer-Bullet 垂直切片、Expand-Contract、**拆解后交用户确认**、**用 `add-task --desc/--inputs/--outputs/--req` 一次全量落盘**、`edge add` + `link-task` + `plan-tasks` 建图、Frontier 前沿驱动）。
 
 > 维护建议：如需调整这两套方法的模板或流程，直接改 `.asa/rules/to-spec.md` / `to-tickets.md`，无需改动 GEMINI.md 常驻指令。
+
+## 💡 省调用组合命令（硬机制，优先用）
+`flow add` / `flow begin` / `flow ship` / `flow sync-docs` / `batch` / `cost`：一次引擎调用 = 多条命令 = 1 次模型调用。用法见 `.asa/rules/call-minimization.md`（按需加载）。

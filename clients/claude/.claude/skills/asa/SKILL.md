@@ -41,7 +41,8 @@ ASA 的引擎代码和模板文件存储在 `~/.asa/` 目录下：
 │   └── matrix.yaml             # 空矩阵骨架
 ├── rules/
 │   ├── to-spec.md              # 增量方法：需求分析（按需加载）
-│   └── to-tickets.md           # 增量方法：任务拆解/垂直切片（按需加载）
+│   ├── to-tickets.md           # 增量方法：任务拆解/垂直切片（按需加载）
+│   └── call-minimization.md    # 省调用手册：hook 分工 + 一键拼接（按需加载）
 └── templates/
     ├── CLAUDE-tier1.md         # Tier 1 CLAUDE.md 模板
     ├── CLAUDE-tier2.md         # Tier 2 CLAUDE.md 模板
@@ -145,6 +146,9 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 
 > 维护建议：如需调整这两套方法的模板或流程，直接改 `.asa/rules/to-spec.md` / `to-tickets.md`，无需改动 CLAUDE.md 常驻指令。
 
+## 💡 省调用组合命令（硬机制，优先用）
+`flow add` / `flow begin` / `flow ship` / `flow sync-docs` / `batch` / `cost`：一次引擎调用 = 多条命令 = 1 次模型调用。用法见 `.asa/rules/call-minimization.md`（按需加载）。
+
 ## 重跑安全性
 
 所有操作均具有强幂等性：无论重复跑多少次：
@@ -153,3 +157,5 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 - **`CLAUDE.md`** 契约一致则跳过；契约升级时先备份 `.bak.<时间戳>` 再做段落级合并，仅替换 `<!-- ASA-CONTRACT-BEGIN/END -->` 内的标准契约段，**用户手写叙事散文不覆盖**；`--force` 备份后整文件重建。无标记旧文件按标准章节位置尽力合并。
 - **`settings.local.json`** 按 Hook 名精准更新，不污染配置。
 - **`index.js` + `hooks/`** 始终更新至最新引擎版本。
+
+- **节点文件格式**：`nodes/*.yaml` 里的多行字段（REQ 的 `spec`、TASK 的 `description` 等）以 **YAML 字面量块 `|-`** 存储——标记下行即是原始 Markdown，直接打开 raw 文件即可读，`#`/`: `/列表都不会被当注释或压扁。存量旧「单行转义」格式会在 `reconcile` 时**自动归一化为块格式**（幂等、事务安全、可回滚）。

@@ -1,12 +1,13 @@
 # ASA 运行契约（Tier 2 - 离线防御 · 精简版）
 
 <!-- ASA-CONTRACT-BEGIN: engine=3.x tier=tier2 -->
-## ⚠️ 强制启动序列
-1. **首选完整阅读本文件**，严禁凭记忆或猜测执行规则。
-2. 运行 `node .asa/index.js diagnose`（只读自检，探测崩溃脏事务）。
-3. 依据诊断确认 `meta.phase` / `activeTask` / `schemaVersion`（v3）；仅当数据不一致时才运行 `reconcile` / `patch` / `doctor`。
+## 🚀 懒启动序列（默认 ≤1 次调用/会话，有告警才加动作）
+1. 会话状态已由 **SessionStart Hook 注入**（Phase/ActiveTask/Open/Awaiting/告警）→ **直接沿用，不跑 diagnose、不重读本契约**。
+2. 无告警：直接按注入状态继续，**不主动汇报阶段、不主动列清单**。
+3. 有 ⚠️ 告警：才按告警做最小动作（docs 过期→compile；00/02 过期→update-overview；脏事务→diagnose/reconcile）。
+4. 不确定命令参数→按需读 `.asa/rules/commands.md`；要一揽子省调用操作→按需读 `.asa/rules/call-minimization.md`。
 
-> 命令细节与参数不确定时，按需读取 `.asa/rules/commands.md`（命令百科，默认不加载）。
+> 铁律：**能由 hook/CI 兜底的，模型不做**（写盘拦截/写后校验归 hook，validate 归收尾/CI）；本地写盘后不自行复验；多条引擎命令一律用 `;` 拼进**同一次调用**。
 
 ## 🎯 核心规范与物理防御
 1. **工作秩序（PreToolUse 门禁拦截）**：实现 / 评审阶段编写代码时，当前工作区**必须有激活的任务节点（activeTask）**，否则写盘被拦截。
@@ -14,16 +15,18 @@
 3. **精益开发原则**：需求未明确或未经架构师审核前不写代码；做完且确认一个任务后，才进入下一个。
 4. **编码前置声明（M 级以上）**：中大型任务编码前，向大鹏声明即将改动/绝不改动的文件边界。
 
-## 🔁 每日 6 步（详情见 commands.md）
+## 🎯 任务定位（省调用）
+拿到新任务先看 SessionStart 已注入的 `activeTask`（含标题）与 `readyTasks`；**仅当**需要任务标题/细节、或两者都没有可用项时，才跑 `board` / `list-task`，**不要每个新任务都跑 board**。
+
+## 🔁 每日 6 步（优先用组合命令，一步到位）
 ```
-建节点(add-req/add-arch/add-task + edge add + plan-tasks)
-→ 进阶段(set phase + set active-task)
-→ 写代码（激活任务后）
-→ 收尾(record-changes → status awaiting-confirmation → set active-task clear)
-→ 文档(compile → validate)
-→ 审核（人 confirm-task / reject-task --by 裁决）
+① 建节点: flow add "<需求标题>" "<任务标题>" [--inputs .. --outputs ..]   # add-req+add-task+edge+plan
+② 进阶段: flow begin <TASK>                                              # set phase+active-task+in_progress
+③ 写代码: 激活任务后修改（未激活写盘被 Hook 拦截）
+④ 收尾:   flow ship <TASK> <files...>                                    # record-changes+awaiting+clear+compile+validate
+⑤ 审核:   (人) confirm-task / reject-task
 ```
-> 省 token/省调用：流程允许时用 `;` 批量执行命令；汇总类命令加 `--json` / `--quiet` 降噪；`validate` 只须收尾/提交前跑一次。
+> 省 token/省调用：用 `;` 批量把命令拼进**同一次调用**；汇总命令加 `--json` / `--quiet`；`validate` 只须收尾/提交前跑一次。**一键拼接模板见 `.asa/rules/call-minimization.md`（按需加载）。**
 
 ## 🐞 问题管理（ISSUE）
 提问题先分流：bug→建修复 TASK；需求不清→改/补需求文档（`requirement-update` 结算）；否则 observation/risk 观察。

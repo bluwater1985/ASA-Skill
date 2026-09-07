@@ -213,6 +213,48 @@ function stringifyScalar(v) {
   return String(v);
 }
 
+// ── 块标量（多行字符串 → YAML 字面量块 `|`，让人独占文件可直接读，如 spec 的 markdown）──
+
+// 序列化侧：把含换行的字符串排版为字面量块 `|-`，内容行按 contentIndent 缩进。
+// 确定性归一化：尾部空行（尾部换行）归一为无，保证 `|-` 往返幂等；
+// ASA 的 spec/description 均由入口 `.trim()` 过，从未有首尾空行，故零数据偏差。
+// 返回 { indicator, body }；调用方负责拼接 `key: <indicator>\n<body>\n`。
+function blockScalarLines(value, contentIndent) {
+  const pad = ' '.repeat(contentIndent);
+  const lines = value.split('\n');
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop(); // 去尾部空行
+  const body = lines.map(l => (l === '' ? '' : pad + l)).join('\n');
+  return { indicator: '|-', body };
+}
+
+// 解析侧：消费字面量块。keyIndent = 块标量头所在行的缩进；块内容须更缩进，去缩进即止。
+// 返回 { value, consumed }；consumed = 已消费的行数（不含结束触发的那一行）。
+function consumeBlockScalar(lines, startIdx, keyIndent, mode) {
+  const rows = [];
+  let base = null;
+  let j = startIdx;
+  for (; j < lines.length; j++) {
+    const nl = lines[j];
+    const nTrim = nl.trim();
+    if (nTrim === '') { rows.push(''); continue; } // 空行：块内换行占位
+    const nIndent = nl.length - nl.trimStart().length;
+    if (nIndent <= keyIndent) break;               // 去缩进 → 结束块（不消费本行）
+    if (base === null || nIndent < base) base = nIndent;
+    rows.push(nl);
+  }
+  const d = rows.map(line => (line === '' ? '' : line.slice(base)));
+  let value = d.join('\n');
+  const chomp = mode ? (mode[1] || ' ') : ' ';
+  if (chomp === '-') {
+    value = value.replace(/\n+$/, '');
+  } else if (chomp === '+') {
+    // 保留全部尾部换行（join 已含）
+  } else {
+    value = value.replace(/\n+$/, '') + '\n';
+  }
+  return { value, consumed: j - startIdx };
+}
+
 // ── 解析 ──
 
 function parseAsaYaml(text) {
@@ -223,7 +265,8 @@ function parseAsaYaml(text) {
   //   当 key: 后跟 - 时，obj 会被懒转换为数组
   const stack = [{ indent: -1, obj: root }];
 
-  for (const rawLine of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
     const trimmed = rawLine.trimEnd();
     const content = trimmed.trimStart();
 
@@ -281,6 +324,14 @@ function parseAsaYaml(text) {
 
       const itemContent = content.startsWith('- ') ? content.slice(2).trim() : '';
 
+      // 块标量数组项：`- |-` / `- |` / `- |+`（多行字符串直接以字面量块存）
+      if (/^\|[+-]?$/.test(itemContent)) {
+        const { value, consumed } = consumeBlockScalar(lines, i + 1, indent, itemContent);
+        arr.push(value);
+        i += consumed;
+        continue;
+      }
+
       if (itemContent === '') {
         // 空数组项: \n  - \n
         const item = {};
@@ -298,6 +349,18 @@ function parseAsaYaml(text) {
         const colonIdx = itemContent.indexOf(':');
         const key = itemContent.slice(0, colonIdx).trim();
         const rawVal = itemContent.slice(colonIdx + 1).trim();
+
+        // 块标量键：`- key: |-`（多行字符串值存为字面量块）
+        if (/^\|[+-]?$/.test(rawVal)) {
+          // 键起始列 = 该行缩进 + 2（跳过 `- ` 前缀），块内容须更深、同级兄弟键到此截止
+          const { value, consumed } = consumeBlockScalar(lines, i + 1, indent + 2, rawVal);
+          const item = {};
+          item[key] = value;
+          arr.push(item);
+          stack.push({ indent, obj: item }); // 后续兄弟键（更缩进的行）写入同一 item
+          i += consumed;
+          continue;
+        }
 
         const item = {};
         if (rawVal === '') {
@@ -329,6 +392,14 @@ function parseAsaYaml(text) {
 
     const key = content.slice(0, colonIdx).trim();
     const rawVal = content.slice(colonIdx + 1).trim();
+
+    // 块标量键值：`key: |-` / `key: |` / `key: |+`（多行字符串 → 字面量块，如 spec）
+    if (/^\|[+-]?$/.test(rawVal)) {
+      const { value, consumed } = consumeBlockScalar(lines, i + 1, indent, rawVal);
+      parent[key] = value;
+      i += consumed;
+      continue;
+    }
 
     if (rawVal === '') {
       // 嵌套结构: key: \n  subkey: val
@@ -409,9 +480,12 @@ function stringifyAsaArray(arr, indent) {
         } else if (typeof firstVal === 'object' && firstVal !== null) {
           // 空对象输出 {}，避免 round-trip 变 null
           out += Object.keys(firstVal).length === 0 ? `${pad}- ${firstKey}: {}\n` : `${pad}- ${firstKey}:\n` + stringifyAsaYaml(firstVal, indent + 2);
-        } else {
-          out += `${pad}- ${firstKey}: ${stringifyScalar(firstVal)}\n`;
-        }
+    } else if (typeof firstVal === 'string' && firstVal.includes('\n')) {
+      const { indicator, body } = blockScalarLines(firstVal, pad.length + 4);
+      out += `${pad}- ${firstKey}: ${indicator}\n${body}\n`;
+    } else {
+      out += `${pad}- ${firstKey}: ${stringifyScalar(firstVal)}\n`;
+    }
         // 其余键（包含嵌套数组/对象）
         for (let i = 1; i < entries.length; i++) {
           const [k, v] = entries[i];
@@ -419,11 +493,18 @@ function stringifyAsaArray(arr, indent) {
             out += v.length === 0 ? `${pad}  ${k}: []\n` : `${pad}  ${k}:\n` + stringifyAsaArray(v, indent + 2);
           } else if (typeof v === 'object' && v !== null) {
             out += Object.keys(v).length === 0 ? `${pad}  ${k}: {}\n` : `${pad}  ${k}:\n` + stringifyAsaYaml(v, indent + 2);
+          } else if (typeof v === 'string' && v.includes('\n')) {
+            const { indicator, body } = blockScalarLines(v, pad.length + 4);
+            out += `${pad}  ${k}: ${indicator}\n${body}\n`;
           } else {
             out += `${pad}  ${k}: ${stringifyScalar(v)}\n`;
           }
         }
       }
+    } else if (typeof item === 'string' && item.includes('\n')) {
+      // 数组内的多行字符串 → 字面量块
+      const { indicator, body } = blockScalarLines(item, pad.length + 2);
+      out += `${pad}- ${indicator}\n${body}\n`;
     } else {
       out += `${pad}- ${stringifyScalar(item)}\n`;
     }
@@ -455,6 +536,10 @@ function stringifyAsaYaml(obj, indent = 0) {
       }
       out += `${pad}${key}:\n`;
       out += stringifyAsaYaml(value, indent + 1);
+    } else if (typeof value === 'string' && value.includes('\n')) {
+      // 多行字符串 → 字面量块（spec / description 等，保证 raw 文件人类可读）
+      const { indicator, body } = blockScalarLines(value, pad.length + 2);
+      out += `${pad}${key}: ${indicator}\n${body}\n`;
     } else {
       out += `${pad}${key}: ${stringifyScalar(value)}\n`;
     }

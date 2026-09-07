@@ -19,6 +19,11 @@
 | matrix.yaml 只存摘要 | 使用习惯 | 常驻 token | 项目越大越省 |
 | 一任务一会话 + 会话中途压缩 | 使用习惯 | 后半程常驻体积 | 明显 |
 | 叙事文档 00/02 不常驻 | 使用习惯 | 常驻 token | 中等 |
+| **组合命令 `flow`（add/begin/ship/sync-docs）** | 已落地 | **模型调用次数** | 每任务 ~8-14 → **~3** |
+| **`batch` 批处理命令** | 已落地 | **模型调用次数** | N 条 → 1 次 |
+| **`validate --skip-if-fresh` 去重门禁** | 已落地 | **模型调用次数** | 重复校验 → 0 |
+| **SessionStart `[ASA NEXT]` 就绪前沿** | 已落地 | **模型调用次数** | 免跑 plan/list |
+| **`cost` 成本观测** | 已落地 | 可验证 | 量化省调用收益 |
 
 ---
 
@@ -85,3 +90,41 @@ Tier 1 每会话读 matrix。别把长验收标准/正文塞进 matrix，**让�
 1. **今天就做**：批量命令（3.1）+ 少跑 validate（3.2）——纯习惯，立省。
 2. **想做就做**：对目标项目重跑 init --force，换上精简契约 + commands.md（省每请求 ~1,500 tokens）。
 3. **进阶**：脚本/DSH 里给查询命令加 `--json`；引擎已带全局降噪，不需要额外改代码。
+
+---
+
+## 5. 硬约束层（机制级 · 流程式省调用，A–F 已落地）
+
+> 前面的 1–4 是“软约束/习惯”，靠模型自觉。本节是**引擎内建的硬机制**：多步焊进一次进程 = 一次模型调用，且**不依赖模型自觉**。
+
+### 5.1 组合命令 `flow`（每任务 8-14 → ~3 次模型调用）
+| 命令 | 一次完成 | 原→现 |
+|---|---|---|
+| `flow add <需求> <任务> [--desc/--inputs/--outputs]` | add-req + add-task(关联) + edge + plan-tasks | 4→1 |
+| `flow begin <TASK> [phase]` | set phase + set active-task + 置 in_progress | 3→1 |
+| `flow ship <TASK> <files...>` | record-changes + awaiting + clear + compile + **validate（失败原子回滚）** | 5→1 |
+| `flow sync-docs` | compile + validate | 2→1 |
+
+### 5.2 `batch`（任意多操作一次进程）
+`node .asa/index.js batch '{"ops":[...]}'` 或 `echo '...' | node .asa/index.js batch -`，单进程顺序执行，N→1 次模型调用，单事务原子。
+
+### 5.3 `validate --skip-if-fresh`（去重门禁）
+120s 内已有一次“**通过**”的 validate（如 CI/pre-commit 刚跑）→ 直接跳过重复校验。CI / pre-commit 用不带该 flag 的 `validate`，始终真跑。
+
+### 5.4 SessionStart `[ASA NEXT]`（0 调用）
+`session-start.js` 启动时注入 `[ASA STATUS]`（Phase/OpenTasks/Awaiting/OpenIssues）+ `[ASA NEXT] readyTasks` + `[ASA READY/ACTION]`，模型会话开头**不再跑 diagnose/list/plan-tasks**。
+
+### 5.5 `cost`（成本观测）
+`node .asa/index.js cost --json`：只读估算归因于 ASA 的模型调用次数（`nodeWriteOps` / `estimateModelCalls` / `estimateModelCallsMerged`），用于量化上述硬机制的收益。
+
+**Tier 3 每“实现+确认”任务成本（硬机制下）**：`flow add`(1) → `flow begin`(1) → 写 → `flow ship`(1，含 validate) = **~3 次模型调用**；会话开头 ~0-1（SessionStart 注入）。
+
+> 对应单测：`engine/commands/flow_batch_cost.test.js`（flow/batch/cost/validate-gate）。
+
+---
+
+## 6. 建议接入顺序（硬机制版）
+
+1. `node install.js <client>` → 把新 `flow/batch/cost`、`rules/`、`hooks/` 装进 `~/.asa`。
+2. 目标项目重跑 `node .asa/index.js <asa-init> tier3 --force`（旧 GEMINI.md 自动备份）。
+3. 引导模型优先 `flow add → flow begin → flow ship`；收尾用 `validate --skip-if-fresh`；用 `cost` 复核收益。

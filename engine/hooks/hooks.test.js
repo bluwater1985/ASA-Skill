@@ -113,12 +113,12 @@ describe('validate-yaml hook', () => {
     cleanup(d);
   });
 
-  it('blocks block scalar marker with exit code 2', () => {
+  it('accepts block scalar (now a supported multiline storage format)', () => {
     const d = makeSandbox('discovery');
-    fs.writeFileSync(path.join(d, '.asa/nodes/tasks/BAD.yaml'), 'desc: |\n  x\n');
-    const r = runArgv(d, 'validate-yaml.js', path.join(d, '.asa/nodes/tasks/BAD.yaml'));
-    assert.equal(r.status, 2); // 验证进程退出码是否为 2
-    assert.match(r.stderr, /块标量/);
+    fs.writeFileSync(path.join(d, '.asa/nodes/tasks/OK.yaml'), 'desc: |-\n  第一行\n  第二行\n');
+    const r = runArgv(d, 'validate-yaml.js', path.join(d, '.asa/nodes/tasks/OK.yaml'));
+    assert.equal(r.status, 0); // 块标量已原生支持，允许通过
+    assert.match(r.stdout, /YAML 通过/);
     cleanup(d);
   });
 

@@ -26,13 +26,17 @@ const { run: overview } = require('./commands/overview.js');
 const { run: board } = require('./commands/board.js');
 const { run: diagnose } = require('./commands/diagnose.js');
 const { run: doctor } = require('./commands/doctor.js');
+const { run: flow } = require('./commands/flow.js');
+const { run: batch } = require('./commands/batch.js');
+const { run: cost } = require('./commands/cost.js');
 const { acquireLock, releaseLock } = require('./lib/lock.js');
 
 const writeCommands = new Set([
   'compile', 'patch', 'reconcile', 'status', 'deprecate',
   'edge', 'propagate', 'change-req', 'change-arch', 'change-task',
   'add-req', 'add-arch', 'add-task', 'add-issue', 'set',
-  'confirm-task', 'reject-task', 'cancel-task', 'link-task', 'record-changes'
+  'confirm-task', 'reject-task', 'cancel-task', 'link-task', 'record-changes',
+  'flow', 'batch'
 ]);
 
 // 全局输出降噪开关：--quiet / -q（抑制信息行）与 --json（汇总命令输出紧凑 JSON）
@@ -220,6 +224,16 @@ try {
       break;
     case 'doctor':
       doctor();
+      break;
+
+    case 'flow':
+      flow(args);
+      break;
+    case 'batch':
+      batch(args);
+      break;
+    case 'cost':
+      cost(args);
       break;
 
     default:

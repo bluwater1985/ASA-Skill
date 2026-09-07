@@ -335,6 +335,9 @@ function runNode(prefix, args) {
     console.error(`[ASA] ❌ compile 失败，将回滚当前写入。错误: ${e.message}`);
     throw e;
   }
+
+  // 返回创建/更新的节点 id，供组合命令（flow/batch）在单进程内串联建边
+  return id;
 }
 
 module.exports = { run: runNode };

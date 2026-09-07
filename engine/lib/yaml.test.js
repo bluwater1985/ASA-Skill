@@ -445,6 +445,74 @@ describe('review findings', () => {
   });
 });
 
+// ── 10.5 多行字符串 → 字面量块标量（spec 的 markdown 可直接读）──
+describe('block scalar (multiline strings)', () => {
+  it('spec markdown serializes as literal block `|-` and round-trips', () => {
+    const md = '# REQ-083 网表物理钻孔与孔环属性\n\n## Problem Statement\n\n当前 `netlist_parser.py` 携带 `side=\'D\'`。\n\n## Solution\n\n- 直径 = 2×radius\n- `arsize_top=` 落库';
+    const yamlOut = stringifyAsaYaml({ spec: md });
+    // 必须使用块标量（人类可直接读），而非单行转义
+    assert.match(yamlOut, /^spec: \|-/m);
+    const back = parseAsaYaml(yamlOut);
+    assert.equal(back.spec, md);
+  });
+
+  it('block content lines starting with # are preserved (not comments)', () => {
+    const md = '# 标题\n\n正文\n\n## 小节';
+    const yamlOut = stringifyAsaYaml({ spec: md });
+    const back = parseAsaYaml(yamlOut);
+    assert.equal(back.spec, md);
+    assert.match(yamlOut, /# 标题/);
+  });
+
+  it('block content lines containing colons are preserved', () => {
+    const md = '条目：值\n- 直径 = 2×radius:\npath: C:\\x';
+    const yamlOut = stringifyAsaYaml({ spec: md });
+    assert.equal(parseAsaYaml(yamlOut).spec, md);
+  });
+
+  it('array of multiline strings round-trips', () => {
+    const obj = { notes: ['第一段\n第二段', 'x'] };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.deepEqual(back.notes, ['第一段\n第二段', 'x']);
+  });
+
+  it('object array with multiline first & sibling keys round-trips', () => {
+    const obj = { arr: [{ a: 'L1\nL2', b: 'X' }, { c: 'Y1\nY2', d: 'Z' }] };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.deepEqual(back.arr, [{ a: 'L1\nL2', b: 'X' }, { c: 'Y1\nY2', d: 'Z' }]);
+  });
+
+  it('trailing newlines normalized to none and stable (idempotent)', () => {
+    // 写侧统一用 `|-` 并把尾部空行归一为无（spec/description 入口已 trim，零偏差）
+    const s = stringifyAsaYaml({ spec: '第一行\n第二行\n' });
+    assert.match(s, /^spec: \|-$/m);
+    assert.equal(parseAsaYaml(s).spec, '第一行\n第二行');
+    // 幂等：重写后字节不变
+    const s2 = stringifyAsaYaml(parseAsaYaml(s));
+    assert.equal(s, s2);
+  });
+
+  it('leading newline is preserved (not trailing)', () => {
+    const md = '\n# 头部空行后的标题';
+    const back = parseAsaYaml(stringifyAsaYaml({ spec: md }));
+    assert.equal(back.spec, md);
+  });
+
+  it('backward compat: legacy single-line escaped spec still parses', () => {
+    const yaml = 'spec: "# 题\\n\\n## 节\\n正文"';
+    assert.equal(parseAsaYaml(yaml).spec, '# 题\n\n## 节\n正文');
+  });
+
+  it('nested object multiline string round-trips', () => {
+    const obj = { meta: { long: '第一行\n第二行\n第三行' } };
+    const s = stringifyAsaYaml(obj);
+    const back = parseAsaYaml(s);
+    assert.equal(back.meta.long, '第一行\n第二行\n第三行');
+  });
+});
+
 // ── 11. 空输入 ──
 describe('edge cases', () => {
   it('handles empty string', () => {

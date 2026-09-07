@@ -198,13 +198,22 @@ if (tier !== 'tier1') {
         command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/validate-yaml.js') + '"',
         timeout: 15000, description: 'ASA: 写入后校验 YAML'
       }
+    },
+    'asa-session-start': {
+      matcher: '',
+      group: 'SessionStart',
+      def: {
+        name: 'asa-session-start', type: 'command',
+        command: 'node "' + path.resolve(process.cwd(), '.asa/hooks/session-start.js') + '"',
+        timeout: 5000, description: 'ASA: 会话状态注入（省调用：免跑 diagnose/list/validate）'
+      }
     }
   };
 
   fs.mkdirSync('.gemini', { recursive: true });
 
   // 读取现有配置，或创建空壳
-  let settings = { hooks: { BeforeTool: [], AfterTool: [] } };
+  let settings = { hooks: { BeforeTool: [], AfterTool: [], SessionStart: [] } };
   const settingsPath = '.gemini/settings.json';
   if (fs.existsSync(settingsPath)) {
     try {
