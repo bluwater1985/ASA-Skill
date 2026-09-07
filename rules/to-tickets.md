@@ -61,7 +61,7 @@
 
 ## 落盘任务节点（YAML 骨架）
 
-> 引擎的 YAML 解析器**不支持块标量 `|`**（GEMINI.md 铁律），`description` 用**引号多行串**（`\n` 转义）存储；推荐直接用 `add-task --desc <文件>` 写入，命令自动处理转义。
+> 注：引擎 YAML 解析器**支持块标量 `|-`**（序列化侧 `blockScalarLines` 用 `|-` 排版，`description` 直接存为可读的 `|-` 块）；推荐直接用 `add-task --desc <文件>` 或 `add-issue --desc <文件>` 写入，命令自动处理转义。
 
 ```yaml
 id: TASK-001

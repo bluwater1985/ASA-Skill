@@ -132,7 +132,7 @@ function runNode(prefix, args) {
   let specSrc = null;        // add-req --spec <源文件.md>
   let requestId = null;      // --id <REQ-xxx>（认领指定 id）
   const taskOpts = { desc: null, inputs: null, outputs: null, req: null }; // add-task 全量字段
-  const issueOpts = { category: null, severity: null, req: null, task: null, arch: null }; // add-issue 字段
+  const issueOpts = { category: null, severity: null, req: null, task: null, arch: null }; // add-issue 字段（desc 走 taskOpts.desc 复用 --desc）
   const argList = Array.isArray(args) ? args : [args];
   const titleParts = [];
 
@@ -145,7 +145,7 @@ function runNode(prefix, args) {
     else if (a === '--by') { operator = next(); }
     else if (a === '--id') { requestId = next(); }
     else if (a === '--spec') { specSrc = next(); }
-    else if (a === '--desc') { taskOpts.desc = next(); }
+    else if (a === '--desc' || a === '--description') { taskOpts.desc = next(); }
     else if (a === '--inputs') { taskOpts.inputs = next(); }
     else if (a === '--outputs') { taskOpts.outputs = next(); }
     else if (a === '--req') { taskOpts.req = next(); }
@@ -288,6 +288,14 @@ function runNode(prefix, args) {
         process.exit(1);
       }
       node.severity = issueOpts.severity;
+    }
+    if (taskOpts.desc) {
+      node.description = existsOrInline(taskOpts.desc); // add-issue --desc 详情落盘
+      if (fs.existsSync(taskOpts.desc)) { // 指向文件时归档可审阅真值源
+        const ifSpecDir = path.join(process.cwd(), '.asa/specs');
+        fs.mkdirSync(ifSpecDir, { recursive: true });
+        fs.writeFileSync(path.join(ifSpecDir, `${id}-issue.md`), fs.readFileSync(taskOpts.desc, 'utf-8'), 'utf-8');
+      }
     }
     if (issueOpts.req) node.linkedReqs = dedupe([...(node.linkedReqs || []), issueOpts.req]);
     if (issueOpts.task) node.linkedTasks = dedupe([...(node.linkedTasks || []), issueOpts.task]);

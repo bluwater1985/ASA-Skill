@@ -44,27 +44,27 @@
 
 ## 三、设计决策（ADR）
 
-### [ ] ADR-1: 新增 rules/to-issues.md 增量方法（并行于 to-spec / to-tickets）
+### [x] ADR-1: 新增 rules/to-issues.md 增量方法（并行于 to-spec / to-tickets）
 - 决策：仿照 to-spec.md / to-tickets.md，新增 rules/to-issues.md。平时不加载，仅当用户明确要求「记录/新增问题」「报 bug」「记 issue」「把这个问题归档」时读取并严格执行，会话结束自动失效。产出物落 .asa/nodes/issues/ISSUE-xxx.yaml。
 - 理由：与既有「增量方法库按需加载」机制完全对称，避免常驻污染上下文；同时把「怎么记问题」固化成可执行、可审计的方法。
 
-### [ ] ADR-2: 引擎 add-issue 补齐 --desc 运载工具（根因修复）
+### [x] ADR-2: 引擎 add-issue 补齐 --desc 运载工具（根因修复）
 - 决策：在 add.js 的 issueOpts 中加入 desc，解析 --desc（可选 --description 别名）；在 ISSUE 分支写 node.description = existsOrInline(issueOpts.desc)。existsOrInline（add.js:84）支持「传文件路径 → 读文件正文」或「传内联字符串 → 直接用」，与 add-task --desc 完全一致。
 - 理由：这是根治 description 恒空的关键；一份充分记录的问题详情可落 .asa/specs/<id>-issue.md 作可审阅真值源后 --desc 引用，也可直接内联。与 to-spec 的 --spec 精神一致。
 - 兼容：--desc 缺省时保持现状（description 为空），不破坏旧调用；空 description 的观察类快速记录仍可用 add-issue "<标题>" --category observation。
 
-### [ ] ADR-3: 详情用单一 description Markdown 大字段，不碎片化 schema
+### [x] ADR-3: 详情用单一 description Markdown 大字段，不碎片化 schema
 - 决策：to-issues 的「现象/复现/预期 vs 实际/影响/根因/处置」全部组织进 description 一份结构化 Markdown（带小标题），而不是拆成 reproSteps / rootCause 等多个 YAML 字段。
 - 理由：保持 ISSUE 节点 schema 稳定（无需 schema 版本升级、无需 migrate）；与人直读、docs/04-issues.md 全文渲染天然契合；根因可能与复现都未定，Markdown 叙述更容忍。命名规范里"不预设修复"由规则保证（正文可含根因假设，但标题不写死方案）。
 
-### [ ] ADR-4: 分级衔接 to-tickets / to-spec（分流管线）
+### [x] ADR-4: 分级衔接 to-tickets / to-spec（分流管线）
 - 决策（对应既有「分流处置」）：
   - bug → 完整记录（含复现/预期/影响/根因假设）→ 按 to-tickets.md 拆修复 TASK（用 --task/affects 关联）。
   - requirement-clarification → 不改 ISSUE 成修复工单，而是走 to-spec.md 改/补需求文档（REQ 节点），再以 requirement-update 结算。
   - observation / risk → 轻量记录现象，不强制拆任务；后续若要处置再升 bug / 建修复 TASK。
 - 理由：避免「所有问题一刀切全拆任务」的过度工程；bug 才值得完整 to-tickets 仪式。
 
-### [ ] ADR-5: 文档一致性对齐（顺手清理）
+### [x] ADR-5: 文档一致性对齐（顺手清理）
 - 决策：rules/to-tickets.md:62-64 目前写「引擎 YAML 解析器不支持块标量 |」，但实证 engine/lib/yaml.js 已支持并在序列化侧用 |- 字面量块（blockScalarLines / consumeBlockScalar）。本方案落地时同步把该注解改为「description 直接以 |- 块存储，或用 add-task --desc <文件> 自动转义」，消除规则与引擎契约的矛盾。
 - 理由：to-issues 模板将用 |- 块演示，若 to-tickets 仍写"不支持块标量"会自相矛盾，误导后续拆分。
 
@@ -220,10 +220,10 @@ pendingPropagation: []
 
 ## 九、实施步骤（Step-by-Step，批准后执行）
 
-- [ ] Step 1：新增 rules/to-issues.md（第四节内容，含模板与骨架）。
-- [ ] Step 2：engine/commands/add.js 加 --desc（issueOpts + 解析 + ISSUE 分支写入）。
-- [ ] Step 3：（可选增强）add-issue --desc <文件> 归档 .asa/specs/<id>-issue.md。
-- [ ] Step 4：同步清理 rules/to-tickets.md:62-64 的块标量注解。
-- [ ] Step 5：在 engine/commands/issue.test.js 补齐第七节用例，跑通全套测试。
-- [ ] Step 6：更新 skill 说明/GEMINI.md 的「增量方法库」段，登记 to-issues 触发词（「记录/新增问题」「报 bug」「记 issue」）。
-- [ ] Step 7：check-work-order 白名单确认（.asa/specs/ 与 docs/ 是否可写）——.asa/specs/ 需确保无 activeTask 时也放行记录问题，必要时同 docs/ 一并白名单。
+- [x] Step 1：新增 rules/to-issues.md（第四节内容，含模板与骨架）。
+- [x] Step 2：engine/commands/add.js 加 --desc（issueOpts + 解析 + ISSUE 分支写入）。
+- [x] Step 3：（可选增强）add-issue --desc <文件> 归档 .asa/specs/<id>-issue.md。
+- [x] Step 4：同步清理 rules/to-tickets.md:62-64 的块标量注解。
+- [x] Step 5：在 engine/commands/issue.test.js 补齐第七节用例，跑通全套测试。
+- [x] Step 6：更新 skill 说明/GEMINI.md 的「增量方法库」段，登记 to-issues 触发词（「记录/新增问题」「报 bug」「记 issue」）。
+- [x] Step 7：check-work-order 白名单确认（.asa/specs/ 与 docs/ 是否可写）——.asa/specs/ 需确保无 activeTask 时也放行记录问题，必要时同 docs/ 一并白名单。

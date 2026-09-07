@@ -47,6 +47,61 @@ describe('add-issue', () => {
     const r = run(dir, 'add-issue', ['x', '--category', 'banana']);
     assert.notEqual(r.exitCode, 0);
   });
+
+  it('--desc <内联串> 完整写入 description（含换行/井号/冒号不被压扁）', () => {
+    dir = createSandbox();
+    const desc = '## 现象\n登录偶发500: 服务端超时\n# 复现\n步骤1\n步骤2';
+    const r = run(dir, 'add-issue', ['登录偶发500', '--category', 'bug', '--severity', 'P1', '--desc', desc]);
+    assert.equal(r.exitCode, 0);
+    const node = readNode(dir, 'issues', 'ISSUE-001');
+    assert.equal(node.category, 'bug');
+    assert.equal(node.description, desc);
+    assert.ok(node.description.includes('\n'));
+    assert.ok(node.description.includes('#'));
+    assert.ok(node.description.includes(':'));
+  });
+
+  it('--desc <文件> 读文件正文并归档 .asa/specs/<id>-issue.md 真值源', () => {
+    dir = createSandbox();
+    const specContent = '## 现象\n支付成功但订单显示未支付\n\n## 根因假设\n状态回调丢失'; 
+    const p = path.join(dir, 'issue-spec.md');
+    fs.writeFileSync(p, specContent, 'utf-8');
+    const r = run(dir, 'add-issue', ['支付状态不同步', '--category', 'bug', '--desc', p]);
+    assert.equal(r.exitCode, 0);
+    const node = readNode(dir, 'issues', 'ISSUE-001');
+    assert.equal(node.description, specContent);
+    const archived = path.join(dir, '.asa/specs/ISSUE-001-issue.md');
+    assert.ok(fs.existsSync(archived), '应归档真值源');
+    assert.equal(fs.readFileSync(archived, 'utf-8'), specContent);
+  });
+
+  it('无 --desc 时 description 为空（兼容不回归）', () => {
+    dir = createSandbox();
+    const r = run(dir, 'add-issue', ['仅标题观察']);
+    assert.equal(r.exitCode, 0);
+    const node = readNode(dir, 'issues', 'ISSUE-001');
+    assert.equal(node.description, '');
+  });
+
+  it('--description 别名与 --task 并存时 description 与 affects 边同时写入', () => {
+    dir = createSandbox();
+    writeNode(dir, 'tasks', 'TASK-001', { id: 'TASK-001', title: 'T', status: 'pending', version: 1 });
+    const desc = '## 现象\n闪退';
+    const r = run(dir, 'add-issue', ['闪退', '--category', 'bug', '--description', desc, '--task', 'TASK-001']);
+    assert.equal(r.exitCode, 0);
+    const node = readNode(dir, 'issues', 'ISSUE-001');
+    assert.equal(node.description, desc);
+    assert.deepEqual(node.linkedTasks, ['TASK-001']);
+    const m = readMatrix(dir);
+    assert.ok(m.edges.some(e => e.from === 'ISSUE-001' && e.to === 'TASK-001' && e.type === 'affects'));
+  });
+
+  it('--desc 不绕过 category 校验', () => {
+    dir = createSandbox();
+    const r = run(dir, 'add-issue', ['x', '--category', 'banana', '--desc', 'y']);
+    assert.notEqual(r.exitCode, 0);
+    assert.equal(readNode(dir, 'issues', 'ISSUE-001'), null);
+  });
 });
 
 describe('ISSUE status lifecycle + soft gates', () => {

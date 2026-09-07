@@ -117,6 +117,7 @@ ASA 内置两套**按需加载**的增量方法，初始化为项目时自动复
 |------|--------------------------|---------|---------|
 | **to-spec**（需求分析/规格化） | 说「开始需求分析 / 拆需求 / 把这个需求规格化 / 写 PRD」 | `.asa/rules/to-spec.md` | 含 `## Further Notes` 的七节完整 Spec，落盘 `spec: |` 至 REQ 节点 |
 | **to-tickets**（任务拆解/垂直切片） | 说「任务拆解 / 拆任务 / 拆 tickets」 | `.asa/rules/to-tickets.md` | Tracer-Bullet 垂直切片 + **拆解后交用户确认** + `edge add`/`link-task`/`plan-tasks` 建图 |
+| **to-issues**（问题记录/归档） | 说「记录/新增问题 / 报 bug / 记 issue」 | `.asa/rules/to-issues.md` | 记全现象/复现/影响/根因 + 按类别分流（bug→to-tickets 拆修复任务） |
 
 完整规约平时**不加载**到上下文，只有用户明确触发时才读取执行（详见 `CLAUDE.md` / `GEMINI.md` 的「增量方法库」段）。调整模板/流程时直接改 `.asa/rules/*.md` 即可，无需改动常驻指令。
 

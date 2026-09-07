@@ -38,6 +38,7 @@
 ## 🧩 增量方法库（按需加载，平时不加载）
 - **需求分析 / to-spec**：用户说「开始需求分析 / 拆需求 / 写 PRD」时 → 读取 `.asa/rules/to-spec.md` 严格执行。
 - **任务拆解 / to-tickets**：用户说「任务拆解 / 拆 tickets」时 → 读取 `.asa/rules/to-tickets.md`，拆解后交用户确认。
+- **问题记录 / to-issues**：用户说「记录/新增问题」「报 bug」「记 issue」时 → 读取 `.asa/rules/to-issues.md`，按模板记全现象/复现/影响/根因，再按类别分流（bug→to-tickets 拆修复任务）。
 - **文档→需求/任务拆解（decompose）**：用户给设计/修复/规格文档并要求拆解为需求+任务时，**必须先**读取 `.asa/rules/decompose.md`，按「断言抽取→REQ-AC→TASK 切片→覆盖矩阵→用户确认」执行，并用 `add-req --spec` / `add-task` 全字段落盘；结束后跑 `validate` 自检（SPEC_WITHOUT_AC / TASK_NO_IO）。
 触发后本会话生效，会话结束自动失效。
 
