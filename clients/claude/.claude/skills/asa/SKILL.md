@@ -42,6 +42,7 @@ ASA 的引擎代码和模板文件存储在 `~/.asa/` 目录下：
 ├── rules/
 │   ├── to-spec.md              # 增量方法：需求分析（按需加载）
 │   ├── to-tickets.md           # 增量方法：任务拆解/垂直切片（按需加载）
+│   ├── to-issues.md            # 增量方法：问题记录/归档（按需加载）
 │   └── call-minimization.md    # 省调用手册：hook 分工 + 一键拼接（按需加载）
 └── templates/
     ├── CLAUDE-tier1.md         # Tier 1 CLAUDE.md 模板
@@ -80,7 +81,7 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 | `validate [--json]` | CI/CD 静态校验门禁 | 哈希指纹、节点漂移、未完成传播校验。**叙事型文档（00, 02）不强制校验哈希**。 |
 | `reconcile` | 对账与数据自举 | **内嵌 `rollbackAllIncomplete()` 自动自愈**，在 missing 时可自举重建 matrix。 |
 | `add-req [--by user]`| 新增相似判定拦截 | 文本判重相似度 `> 0.9` 会触发拦截，可用 `--by` 强制审计特批豁免。 |
-| `add-issue <title> [--category <bug\|requirement-clarification\|observation\|risk>] [--severity P0-P3] [--task <id>] [--req <id>] [--arch <id>]` | 新增问题节点（Schema v4） | 第 4 类节点 `ISSUE-xxx`，默认 `observation / P2`。提出问题时**先分流**：bug → 建修复 TASK；需求没写清 → 改/补需求文档；否则以 observation/risk 观察。`--task/--req/--arch` 自动写 `affects` 边。 |
+| `add-issue <title> [--category <bug\|requirement-clarification\|observation\|risk>] [--severity P0-P3] [--desc <文件\|串>] [--task <id>] [--req <id>] [--arch <id>]` | 新增问题节点（Schema v4） | 第 4 类节点 `ISSUE-xxx`，默认 `observation / P2`。提出问题时**先分流**：bug → 建修复 TASK；需求没写清 → 改/补需求文档；否则以 observation/risk 观察。`--desc` 写入详情（文件形式自动归档 `.asa/specs/<id>-issue.md`）；`--task/--req/--arch` 自动写 `affects` 边。 |
 | `status ISSUE-xxx <状态>` | ISSUE 状态机推进 | `open→triaged→in_progress→resolved→verified`，另有 `cancelled/wontfix`。`→resolved` 须 `--note "<处置>"`；`resolved→verified`、`resolved→open/in_progress`、`cancelled→open` 须 `--by`；`verified` 为吸收终态。 |
 | `update-overview` | 只读项目总览摘要 | **不写盘**。需求/任务正文请用 `docs/01-requirements.md` 与 `docs/03-tasks.md` 作素材，问题清单用 `docs/04-issues.md`；本命令仅补齐架构/依赖边/lessons，并输出 `Nodes Digest (当前)`、可直接照抄的 `ASA-BASED-ON` 锚点与重写操作模板。 |
 | `board [REQ-xxx]` | 聚焦看板（只读、不加锁） | 只把「未完成任务」按状态分组摊开（⏳待办/🔨进行中/⛔阻塞/🙋待确认），blocked 标出阻塞来源；已完成/已归档仅计数。可 `board REQ-xxx` 只看某需求。 |
@@ -143,8 +144,9 @@ node ~/.claude/skills/asa/scripts/asa-init.js [tier1|tier2|tier3] [--name=<proje
 
 - 用户**明确说要做需求分析 / 需求规格化**时 → 读取并严格执行 `.asa/rules/to-spec.md`（含 Problem Statement / Solution / User Stories / Implementation Decisions / Testing Decisions / Out of Scope / **Further Notes** 全模板；**用 `add-req --spec <源.md>` 忠实落盘 REQ 节点，杜绝二次回填压缩**）。
 - 用户**明确说要做任务拆解 / 拆 tickets**时 → 读取并严格执行 `.asa/rules/to-tickets.md`（Tracer-Bullet 垂直切片、Expand-Contract、**拆解后交用户确认**、**用 `add-task --desc/--inputs/--outputs/--req` 一次全量落盘**、`edge add` + `link-task` + `plan-tasks` 建图、Frontier 前沿驱动）。
+- 用户**明确说要做问题记录 / 报 bug / 记 issue**时 → 读取并严格执行 `.asa/rules/to-issues.md`（记全现象/受影响场景/复现/预期 vs 实际/影响/根因假设，**用 `add-issue --desc` 一次全量落盘详情**；再按类别分流：bug→to-tickets 拆修复任务、requirement-clarification→to-spec、observation/risk 观察）。
 
-> 维护建议：如需调整这两套方法的模板或流程，直接改 `.asa/rules/to-spec.md` / `to-tickets.md`，无需改动 CLAUDE.md 常驻指令。
+> 维护建议：如需调整这些方法的模板或流程，直接改 `.asa/rules/to-spec.md` / `to-tickets.md` / `to-issues.md`，无需改动 CLAUDE.md 常驻指令。
 
 ## 💡 省调用组合命令（硬机制，优先用）
 `flow add` / `flow begin` / `flow ship` / `flow sync-docs` / `batch` / `cost`：一次引擎调用 = 多条命令 = 1 次模型调用。用法见 `.asa/rules/call-minimization.md`（按需加载）。
